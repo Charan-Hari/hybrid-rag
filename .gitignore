@@ -1,0 +1,32 @@
+# --- Python ---
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# --- Env / secrets ---
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# --- Data / vector store ---
+backend/data/
+backend/eval/results.json
+
+# --- Node / frontend (if a build step is added later) ---
+node_modules/
+dist/
+.parcel-cache/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- IDE ---
+.vscode/
+.idea/
