@@ -87,19 +87,12 @@ Get a **free** API key from one of:
 - Groq: https://console.groq.com/keys (fast, free tier, Llama 3.3 70B)
 - Gemini: https://aistudio.google.com/apikey (free tier, Gemini 2.0 Flash)
 
-Run tests:
-```bash
-pytest -v
-```
-
 ### 2. Frontend
 
 No build step required. Either:
 - Open `frontend/index.html` directly in a browser, or
 - Serve it locally: `python -m http.server 5500 --directory frontend`
 
-In the UI, set **Backend API base URL** to `http://localhost:7860` (default) and,
-if you set `API_KEY` in `.env`, paste the same value into the **API key** field.
 
 ### 3. Try it
 1. Upload a PDF/DOCX/MD/TXT file via "Upload & Index".
@@ -132,10 +125,6 @@ reports a retrieval-hit-rate metric (whether expected sources were cited). Exten
 `backend/eval/dataset.json` with your own documents' Q/A pairs, and consider wiring
 in [RAGAS](https://github.com/explodinggradients/ragas) for faithfulness/answer-relevance
 scoring once you have a golden dataset.
-
-```bash
-python -m eval.run_eval --api-base http://localhost:7860 --dataset eval/dataset.json
-```
 
 ## Security notes
 
