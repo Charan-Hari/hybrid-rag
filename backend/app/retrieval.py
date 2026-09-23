@@ -76,6 +76,7 @@ class HybridRetriever:
 
         rrf_k = 60  # standard RRF smoothing constant
         fused_scores: dict[str, float] = {}
+        relevance_scores: dict[str, float] = {}
         passage_lookup: dict[str, RetrievedPassage] = {}
 
         for rank_list in (dense, sparse):
@@ -83,14 +84,25 @@ class HybridRetriever:
                 fused_scores[passage.id] = fused_scores.get(passage.id, 0.0) + 1.0 / (
                     rrf_k + rank + 1
                 )
+                # RRF is useful for ordering, but its values are always tiny
+                # and are not suitable for the confidence gate in generation.
+                # Preserve a normalized evidence score for that decision.
+                evidence = (
+                    passage.score
+                    if rank_list is dense
+                    else passage.score / (1.0 + passage.score)
+                )
+                relevance_scores[passage.id] = max(
+                    relevance_scores.get(passage.id, 0.0), evidence
+                )
                 passage_lookup[passage.id] = passage
 
         fused = sorted(
             passage_lookup.values(), key=lambda p: fused_scores[p.id], reverse=True
         )
-        # attach fused score for downstream fallback thresholding
+        # Expose meaningful relevance rather than the tiny RRF ordering score.
         for p in fused:
-            p.score = fused_scores[p.id]
+            p.score = relevance_scores[p.id]
 
         candidate_pool = fused[: max(settings.top_k_dense, settings.top_k_sparse)]
 

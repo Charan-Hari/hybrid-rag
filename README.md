@@ -1,206 +1,175 @@
 # Hybrid RAG
 
-A production-minded Retrieval-Augmented Generation (RAG) showcase: **hybrid search
-(dense + sparse) + cross-encoder re-ranking + streaming, citation-grounded answers +
-confidence-gated fallback**, deployable for free.
+Hybrid RAG is a small, public document-intelligence demo. Upload a PDF, Word
+document, Markdown file, or text file, then ask questions and receive a streamed
+answer with supporting citations.
 
-This project intentionally goes beyond the classic
-["simple-local-rag"](https://github.com/mrdbourke/simple-local-rag) tutorial pattern
-(fixed-chunk + single dense vector search + local-only notebook) to demonstrate
-production RAG engineering.
+**Live demo:** [charan-hari.github.io/hybrid-rag](https://charan-hari.github.io/hybrid-rag/)
+
+## What the demo does
+
+- Drag-and-drop or select PDF, DOCX, Markdown, and TXT files.
+- Show an immediate file insight card with a summary and visual signals.
+- Bundle five sample documents so the demo can be tried without downloads.
+- Extract text and metadata, split it into searchable sections, and persist it in Chroma.
+- Combine dense feature-hash retrieval with BM25 keyword retrieval.
+- Stream grounded answers from Groq or Gemini using Server-Sent Events.
+- Show source/page citations and an honest insufficient-context response.
+- Run on a static GitHub Pages frontend and a small FastAPI backend.
+
+The default embedding implementation uses deterministic feature hashing rather
+than PyTorch or transformer weights. This keeps the free Render deployment
+small and avoids downloading a model during the first upload.
+
+## Try the live demo
+
+1. Open the [live demo](https://charan-hari.github.io/hybrid-rag/).
+2. Choose **Use sample** or select your own PDF, DOCX, Markdown, or TXT file.
+3. Review the file insight card while it is being indexed.
+4. Ask a specific question, such as:
+
+   - `What are the key takeaways?`
+   - `What risks or controls are mentioned?`
+   - `Give me a short summary with citations.`
+
+The five bundled samples are in [`frontend/samples/`](frontend/samples/):
+
+| Sample | Format | Demonstrates |
+|---|---|---|
+| Embedded images & tables | PDF | Research text, table-like content, and figures |
+| Project brief | DOCX | Headings, priorities, owners, and delivery planning |
+| Security review | DOCX | Risk ratings, controls, and action tracking |
+| NASA Earth science | Markdown | Reference text and source links |
+| NIST cybersecurity basics | Markdown | Structured guidance and named framework functions |
+
+## Screenshots and demo recording
+
+The live site is the source of truth for the current UI:
+
+[Open the working demo](https://charan-hari.github.io/hybrid-rag/)
+
+To add a real recording to the repository, capture the live page as
+`docs/demo.gif` and place this directly below:
+
+```markdown
+![Hybrid RAG demo](docs/demo.gif)
+```
+
+This repository package does not include a fabricated recording; a screen
+recording should be captured from the deployed site so it reflects the actual
+backend connection and streamed answer behavior.
 
 ## Architecture
 
-```
-GitHub Pages (frontend/)              <- static HTML/JS/CSS, no build step
-        │  fetch / SSE stream
+```text
+GitHub Pages frontend
+        │  HTTPS fetch + SSE
         ▼
-FastAPI backend (backend/)            <- deploy free on Hugging Face Spaces / Render
-        │
-        ├── Ingestion: PDF / DOCX / Markdown / TXT loaders + recursive chunker
-        ├── Embeddings: lightweight feature-hash vectors (stdlib-only, free-tier friendly)
-        ├── Vector store: Chroma (persistent, local disk)
-        ├── Hybrid retrieval: dense (Chroma) + sparse (BM25) fused via
-        │                     Reciprocal Rank Fusion (RRF)
-        ├── Re-ranking: optional lightweight lexical reranking
-        ├── Confidence gate: skips LLM call and returns an honest
-        │                    "insufficient context" message when
-        │                    retrieval relevance is too low
-        └── Generation: Groq (Llama 3.3) or Gemini (2.0 Flash) — both have
-                         generous free tiers, streamed via Server-Sent Events
+FastAPI backend
+        ├── PDF/DOCX/Markdown/TXT ingestion and chunking
+        ├── Feature-hash vectors + Chroma persistence
+        ├── BM25 keyword retrieval
+        ├── Reciprocal-rank hybrid retrieval
+        └── Groq or Gemini streamed generation with citations
 ```
-
-## Why this is different from the tutorial
-
-| Feature | simple-local-rag | This project |
-|---|---|---|
-| Retrieval | dense only, in-memory tensor | hybrid dense+sparse, persistent vector DB |
-| Precision | none | cross-encoder re-ranking |
-| Answer grounding | none | inline citations `[1]`, `[2]` with source + page |
-| Hallucination control | none | confidence threshold → explicit fallback |
-| Interface | Jupyter/Colab notebook | deployed web UI + REST/streaming API |
-| Chunking | fixed sentence count | recursive splitter with overlap |
-| Document types | PDF only | PDF, DOCX, Markdown, TXT |
-| Evaluation | none | retrieval-hit-rate eval harness (`backend/eval`) |
-| Deployment | local GPU only | free-tier cloud (HF Spaces/Render + GitHub Pages) |
 
 ## Repository layout
 
-```
-hybrid-rag/
-├── backend/
-│   ├── app/
-│   │   ├── main.py          # FastAPI app: /api/ingest, /api/query (SSE), /api/health, /api/reset
-│   │   ├── config.py        # env-driven settings (pydantic-settings)
-│   │   ├── ingestion.py     # loaders + recursive chunker
-│   │   ├── vectorstore.py   # embeddings + Chroma wrapper
-│   │   ├── retrieval.py     # hybrid (BM25 + dense) fusion + re-ranking
-│   │   └── generation.py    # Groq/Gemini streaming + citation prompt + fallback
-│   ├── tests/                # pytest unit + API tests
-│   ├── eval/                 # simple retrieval-quality eval harness
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── index.html            # static UI, no build step — deploy as-is to GitHub Pages
-│   ├── app.js
-│   ├── style.css
-│   └── samples/              # five bundled PDF, DOCX, and Markdown demo fixtures
-└── .github/workflows/
-    ├── backend-ci.yml        # lint + pytest on backend changes
-    └── deploy-pages.yml      # auto-deploy frontend/ to GitHub Pages
+```text
+backend/
+  app/
+    main.py          API endpoints
+    ingestion.py     file loaders and chunking
+    vectorstore.py   lightweight embeddings and Chroma
+    retrieval.py     dense + BM25 hybrid retrieval
+    generation.py    Groq/Gemini streaming and citations
+  tests/
+  Dockerfile
+  requirements.txt
+  .env.example
+frontend/
+  index.html
+  app.js
+  style.css
+  samples/
+.github/workflows/
 ```
 
-## Getting started locally
+## Deploy your own copy
 
-### 1. Backend
+### 1. Backend on Render
+
+Create a Render Web Service from this repository:
+
+- **Root directory:** `backend`
+- **Runtime:** Docker
+- **Health check path:** `/api/health`
+
+Add these environment variables in Render:
+
+```text
+LLM_PROVIDER=groq
+GROQ_API_KEY=your_groq_key
+GROQ_MODEL=llama-3.3-70b-versatile
+CORS_ALLOW_ORIGINS=https://charan-hari.github.io
+MAX_UPLOAD_MB=20
+RATE_LIMIT_PER_MINUTE=30
+USE_RERANKER=false
+```
+
+Never put `GROQ_API_KEY` in the frontend, GitHub Pages, a ZIP file, or a
+committed `.env` file. The free instance uses the lightweight embedder and
+does not need PyTorch.
+
+### 2. Frontend on GitHub Pages
+
+The included workflow deploys `frontend/` from the `main` branch. The deployed
+frontend already points to the configured backend through
+`window.HYBRID_RAG_API_BASE` in [`frontend/index.html`](frontend/index.html).
+
+If you use a different backend, change that URL and set
+`CORS_ALLOW_ORIGINS` to the exact GitHub Pages origin.
+
+## Run locally
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate        # Windows
-pip install -r requirements.txt -r requirements-dev.txt
-copy .env.example .env        # PowerShell; then fill in GROQ_API_KEY or GEMINI_API_KEY
+.venv\Scripts\activate
+pip install -r requirements.txt
+copy .env.example .env
+# Add GROQ_API_KEY or GEMINI_API_KEY to backend/.env
 uvicorn app.main:app --reload --port 7860
 ```
 
-Get a **free** API key from one of:
-- Groq: https://console.groq.com/keys (fast, free tier, Llama 3.3 70B)
-- Gemini: https://aistudio.google.com/apikey (free tier, Gemini 2.0 Flash)
+In another terminal:
 
-Run tests:
 ```bash
-pytest -v
+python -m http.server 5500 --directory frontend
 ```
 
-### 2. Frontend
+Then open `http://localhost:5500`.
 
-No build step required. Either:
-- Open `frontend/index.html` directly in a browser, or
-- Serve it locally: `python -m http.server 5500 --directory frontend`
-
-The UI defaults to the current origin when hosted and keeps connection controls under
-**Advanced connection settings**. For local development, it automatically uses
-`http://localhost:7860`; leave `API_KEY` empty for a frictionless demo. For a public
-deployment, set `window.HYBRID_RAG_API_BASE` before `app.js` in `frontend/index.html` to
-the deployed backend URL. Use an authentication proxy or short-lived token rather than
-exposing a shared administrator key in a browser.
-
-### 3. Try it
-1. Choose one of the five bundled samples or add a PDF/DOCX/MD/TXT file using the
-   document drop zone. The pack includes a PDF with embedded images/tables, two DOCX
-   files with structured tables, and two Markdown references. Samples are kept in
-   `frontend/samples/`, so the demo still works if external downloads are unavailable.
-2. Ask a question in the chat box — the answer streams in with numbered
-   citations `[1]`, `[2]` linking back to source + page.
-3. Ask something unrelated to the document — you should see the explicit
-   "I don't have enough relevant information..." fallback instead of a
-   hallucinated answer.
-
-## API surface
+## API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/api/health` | Liveness and indexed chunk count |
-| GET | `/api/documents` | List indexed sources and chunk/page counts |
-| POST | `/api/ingest` | Index a PDF, DOCX, Markdown, or TXT file |
-| DELETE | `/api/documents/{source}` | Remove one source and its chunks |
-| POST | `/api/query` | Stream answer/citations as Server-Sent Events |
-| DELETE | `/api/reset` | Clear the complete local index |
+| GET | `/api/health` | Backend status and indexed section count |
+| GET | `/api/documents` | Indexed document list |
+| POST | `/api/ingest` | Add a PDF, DOCX, Markdown, or TXT file |
+| POST | `/api/query` | Stream answer, citations, and completion events |
+| DELETE | `/api/documents/{source}` | Remove one document |
+| DELETE | `/api/reset` | Clear the index |
 
-`/api/query` emits `citations`, `token`, and `done` events. The frontend consumes this
-stream directly, so the answer appears progressively instead of waiting for generation
-to finish.
+## Security and operating notes
 
-## Deploying for free
-
-**Backend** (pick one):
-- **Hugging Face Spaces** (Docker SDK, free CPU tier) — push `backend/` with its
-  `Dockerfile`, set `GROQ_API_KEY`/`GEMINI_API_KEY` and `API_KEY` as Space secrets.
-- **Render** free web service — point the root at `backend/`, build command
-  `pip install -r requirements.txt`, start command
-  `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
-
-**Frontend**:
-- GitHub Pages, via the included `.github/workflows/deploy-pages.yml` (auto-deploys
-  `frontend/` on push to `main`). After deploying, update the **Backend API base URL**
-  field in the UI (the URL is persisted in `localStorage`) to point at your deployed
-  backend URL, and set `CORS_ALLOW_ORIGINS` on the backend to the exact Pages origin
-  (e.g. `https://charan-hari.github.io`).
-
-### GitHub Pages
-
-The included workflow publishes `frontend/` to:
-
-```text
-https://charan-hari.github.io/hybrid-rag/
-```
-
-In repository **Settings → Pages**, choose **GitHub Actions** as the source. The
-frontend is intentionally static and does not contain an API key.
-
-### Backend deployment checklist
-
-1. Create a Render service or Docker-based Hugging Face Space from `backend/`.
-2. Set `LLM_PROVIDER`, `GROQ_API_KEY` or `GEMINI_API_KEY`, and `CORS_ALLOW_ORIGINS`.
-   The default feature-hash embedder and `USE_RERANKER=false` are designed for
-   a free 512 MB service and do not download PyTorch or transformer weights.
-3. Set `API_KEY` only when requests are protected by a proper auth layer; do not publish
-   a long-lived administrator key in a public client.
-4. Use persistent storage for Chroma. Ephemeral free instances lose the index on restart.
-5. Copy the backend HTTPS URL into the Pages UI and verify `/api/health`.
-
-## Evaluation
-
-`backend/eval/run_eval.py` runs a set of Q/A pairs against a running instance and
-reports a retrieval-hit-rate metric (whether expected sources were cited). Extend
-`backend/eval/dataset.json` with your own documents' Q/A pairs, and consider wiring
-in [RAGAS](https://github.com/explodinggradients/ragas) for faithfulness/answer-relevance
-scoring once you have a golden dataset.
-
-```bash
-python -m eval.run_eval --api-base http://localhost:7860 --dataset eval/dataset.json
-```
-
-## Security notes
-
-- No secrets are committed. Copy `backend/.env.example` to `backend/.env` (gitignored)
-  and fill in your own keys.
-- `API_KEY` (optional) gates `/api/ingest`, `/api/query`, `/api/documents`, and `/api/reset`
-  via the `X-API-Key` header. Treat it as a server-side integration secret; the UI only
-  holds a manually entered key in memory and never persists it.
-- Rate limiting (`RATE_LIMIT_PER_MINUTE`) is enabled by default via `slowapi`.
-- Uploads are limited by `MAX_UPLOAD_MB` and filenames are normalized before temporary
-  storage.
-
-## Roadmap / possible extensions
-
-- Agentic query routing (retrieve vs. direct-answer vs. multi-hop)
-- GraphRAG for cross-referenced document sets
-- Multi-collection workspaces (per-user or per-project document sets)
-- Semantic caching to cut repeated LLM calls
-- Full RAGAS faithfulness/answer-relevance scoring in CI
+- API keys belong only in server environment variables.
+- CORS should be restricted to the deployed frontend origin.
+- Upload size and request rate are configurable.
+- Free Render storage is ephemeral; use a persistent disk if the index must
+  survive service restarts.
+- The public demo is intended for sample and non-sensitive documents.
 
 ## License
 
-MIT — see [LICENSE](./LICENSE).
+MIT — see [`LICENSE`](LICENSE).

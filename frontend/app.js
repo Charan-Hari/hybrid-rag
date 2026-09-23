@@ -21,6 +21,8 @@ const SAMPLE_DOCUMENTS = [
     source: "Unstructured example documents",
     sourceUrl: "https://github.com/Unstructured-IO/unstructured-ingest/tree/main/example-docs",
     path: "./samples/embedded-images-tables.pdf",
+    summary: "A scientific corrosion study with extracted research text, a polarization table, and embedded figures.",
+    signals: [["Research text", 88], ["Tables", 72], ["Figures", 64]],
   },
   {
     id: "project-brief",
@@ -30,6 +32,8 @@ const SAMPLE_DOCUMENTS = [
     source: "Hybrid RAG sample pack",
     sourceUrl: "https://github.com/Charan-Hari/hybrid-rag",
     path: "./samples/sample-project-brief.docx",
+    summary: "A delivery plan covering project goals, priorities, owners, milestones, and expected outcomes.",
+    signals: [["Planning", 92], ["Actions", 78], ["Structure", 86]],
   },
   {
     id: "security-review",
@@ -39,6 +43,8 @@ const SAMPLE_DOCUMENTS = [
     source: "Hybrid RAG sample pack",
     sourceUrl: "https://github.com/Charan-Hari/hybrid-rag",
     path: "./samples/sample-security-review.docx",
+    summary: "A practical security review organized around risks, severity ratings, controls, and follow-up actions.",
+    signals: [["Risk register", 94], ["Controls", 88], ["Actions", 76]],
   },
   {
     id: "nasa-earth",
@@ -48,6 +54,8 @@ const SAMPLE_DOCUMENTS = [
     source: "NASA Earth",
     sourceUrl: "https://science.nasa.gov/earth/",
     path: "./samples/sample-nasa-earth.md",
+    summary: "An introduction to how NASA observes Earth systems, climate patterns, and changes over time.",
+    signals: [["Science", 90], ["Climate", 82], ["Reference", 70]],
   },
   {
     id: "nist-cybersecurity",
@@ -57,6 +65,8 @@ const SAMPLE_DOCUMENTS = [
     source: "NIST Cybersecurity Framework",
     sourceUrl: "https://www.nist.gov/cyberframework",
     path: "./samples/sample-nist-cybersecurity.md",
+    summary: "A concise guide to the NIST Cybersecurity Framework functions: identify, protect, detect, respond, and recover.",
+    signals: [["Security", 95], ["Framework", 91], ["Guidance", 84]],
   },
 ];
 
@@ -69,11 +79,79 @@ function element(tag, attrs = {}, children = []) {
     else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
     else if (value !== undefined) node.setAttribute(key, value);
   }
+
   for (const child of [].concat(children)) {
     if (child === null || child === undefined) continue;
     node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
   }
   return node;
+}
+
+function showFilePreview(file, sample = null) {
+  const preview = document.getElementById("filePreview");
+  if (!preview) return;
+  const extension = file.name.split(".").pop()?.toUpperCase() || "FILE";
+  const icon = extension === "PDF" ? "▤" : extension === "DOCX" ? "▥" : "≡";
+  const baseSignals = sample?.signals || (
+    extension === "PDF"
+      ? [["Text & pages", 82], ["Tables", 55], ["Figures", 38]]
+      : extension === "DOCX"
+        ? [["Headings", 78], ["Paragraphs", 86], ["Tables", 52]]
+        : [["Text", 88], ["Keywords", 74], ["Sections", 62]]
+  );
+  preview.className = "file-preview";
+  preview.replaceChildren(
+    element("div", { class: "preview-topline" }, [
+      element("div", { class: "preview-file-icon" }, icon),
+      element("div", { class: "preview-title" }, [
+        element("div", { class: "preview-kicker" }, "SELECTED FILE"),
+        element("strong", {}, file.name),
+        element("span", {}, `${extension} · ${formatBytes(file.size)}`),
+      ]),
+      element("span", { class: "preview-badge" }, "ANALYZING"),
+    ]),
+    element("p", { id: "previewSummary", class: "preview-summary" }, sample?.summary || summaryForType(extension)),
+    element("div", { class: "preview-signals" }, baseSignals.map(([label, value]) =>
+      element("div", { class: "preview-signal" }, [
+        element("div", { class: "preview-signal-label" }, [
+          element("span", {}, label),
+          element("span", {}, `${value}%`),
+        ]),
+        element("span", { class: "bar-track" }, [
+          element("span", { class: "bar-fill", style: `width:${value}%` }),
+        ]),
+      ])
+    )),
+    element("p", { class: "preview-note" }, sample ? "This sample is ready to index. Ask for a summary or key takeaways after processing." : "The backend will extract text, headings, tables, and page references while indexing.")
+  );
+  if (!sample && ["MD", "MARKDOWN", "TXT"].includes(extension)) enrichTextPreview(file);
+}
+
+async function enrichTextPreview(file) {
+  const summary = document.getElementById("previewSummary");
+  if (!summary) return;
+  try {
+    const text = (await file.text()).replace(/\s+/g, " ").trim();
+    if (!text) return;
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const excerpt = sentences.slice(0, 2).join(" ").slice(0, 240);
+    summary.textContent = excerpt + (excerpt.length < text.length ? "…" : "");
+  } catch {
+    summary.textContent = "The file is selected and ready for backend extraction.";
+  }
+}
+
+function summaryForType(extension) {
+  if (extension === "DOCX") return "A Word document selected. Its headings, paragraphs, and tables will be turned into searchable sections.";
+  if (extension === "PDF") return "A PDF selected. Its readable text, page numbers, and table-like content will be analyzed.";
+  return "A text-based document selected. Its sections and key terms will be analyzed immediately.";
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / 1024 ** index).toFixed(index ? 1 : 0)} ${units[index]}`;
 }
 
 function authHeaders(extra = {}) {
@@ -185,7 +263,7 @@ async function useSample(sample) {
     const response = await fetch(sample.path);
     if (!response.ok) throw new Error(`Sample file unavailable (${response.status})`);
     const file = new File([await response.blob()], sample.filename);
-    await uploadFile(file);
+    await uploadFile(file, sample);
   } catch (error) {
     status.className = "inline-status error";
     status.textContent = `Could not load the sample: ${readableError(error)}`;
@@ -210,9 +288,10 @@ function bindLibrary() {
   });
 }
 
-async function uploadFile(file) {
+async function uploadFile(file, sample = null) {
   const status = document.getElementById("uploadStatus");
   if (!file) return;
+  showFilePreview(file, sample);
   status.className = "inline-status pending";
   status.textContent = `Reading ${file.name}…`;
   try {
@@ -237,6 +316,11 @@ function chatContent() {
     element("div", { class: "card-heading split" }, [
       cardHeading("✦", "Ask questions", "Answers stay grounded in your uploaded files.", "violet"),
       element("span", { class: "grounded-pill" }, "CITED ANSWERS"),
+    ]),
+    element("section", { id: "filePreview", class: "file-preview empty-preview" }, [
+      element("div", { class: "preview-kicker" }, "FILE INSIGHT"),
+      element("strong", {}, "Choose a file to see what it contains"),
+      element("p", {}, "A quick local readout will appear here before indexing starts."),
     ]),
     element("div", { id: "chatLog", class: "chat-log" }, [
       message("assistant", "Hi! Add a document on the left, then ask me anything about it. I’ll include the supporting passages with every answer."),

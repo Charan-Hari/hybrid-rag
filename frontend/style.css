@@ -37,6 +37,23 @@ h1 { max-width: 620px; margin: 0; font-size: clamp(30px, 4.5vw, 52px); line-heig
 .workspace { display: grid; grid-template-columns: minmax(250px, .82fr) minmax(0, 1.55fr); gap: 16px; align-items: start; }
 .card { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 10px 35px rgba(30, 48, 85, .05); }
 .chat-card { grid-row: span 2; min-height: 540px; display: flex; flex-direction: column; }
+.file-preview { margin: -4px 0 15px; padding: 12px; border: 1px solid #dce6fb; border-radius: 12px; background: linear-gradient(135deg, #f8faff, #fff); }
+.empty-preview { border-style: dashed; }
+.empty-preview strong { display: block; margin-top: 5px; font-size: 12px; }
+.empty-preview p { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
+.preview-topline { display: flex; gap: 9px; align-items: center; }
+.preview-file-icon { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: 9px; color: var(--blue); background: #eaf1ff; font-size: 17px; font-weight: 800; }
+.preview-title { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.preview-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.preview-title span { color: var(--muted); font-size: 9px; }
+.preview-kicker { color: var(--blue); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.preview-badge { padding: 4px 6px; border-radius: 999px; color: var(--gold); background: #fff6e8; font-size: 8px; font-weight: 800; }
+.preview-summary { margin: 11px 0; color: #344054; font-size: 11px; line-height: 1.5; }
+.preview-signals { display: grid; gap: 6px; }
+.preview-signal-label { display: flex; justify-content: space-between; margin-bottom: 3px; color: var(--muted); font-size: 9px; }
+.preview-signal .bar-track { height: 5px; }
+.preview-signal .bar-fill { background: var(--violet); }
+.preview-note { margin: 10px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; }
 .card-heading { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 20px; }
 .card-heading.split { justify-content: space-between; }
 .icon-box { display: grid; width: 32px; height: 32px; flex: 0 0 auto; place-items: center; border-radius: 9px; font-weight: 800; }
