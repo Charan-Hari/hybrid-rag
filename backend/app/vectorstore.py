@@ -69,14 +69,21 @@ class VectorStore:
         )
         return len(chunks)
 
-    def query_dense(self, query: str, top_k: int) -> list[dict]:
+    def query_dense(self, query: str, top_k: int, source: str | None = None) -> list[dict]:
         """Dense similarity search. Returns list of {id, text, metadata, score}."""
         if self._collection.count() == 0:
             return []
         query_emb = embed_texts([query])[0]
+        kwargs = {"where": {"source": source}} if source else {}
+        available = self._collection.count()
+        if source:
+            available = len(self._collection.get(where=kwargs["where"], include=["metadatas"])["ids"])
+        if available == 0:
+            return []
         result = self._collection.query(
             query_embeddings=[query_emb],
-            n_results=min(top_k, self._collection.count()),
+            n_results=min(top_k, available),
+            **kwargs,
         )
         out = []
         ids = result.get("ids", [[]])[0]
@@ -89,11 +96,12 @@ class VectorStore:
             out.append({"id": id_, "text": doc, "metadata": meta, "score": score})
         return out
 
-    def all_documents(self) -> list[dict]:
+    def all_documents(self, source: str | None = None) -> list[dict]:
         """Return all stored documents (for building the BM25 sparse index)."""
         if self._collection.count() == 0:
             return []
-        result = self._collection.get(include=["documents", "metadatas"])
+        kwargs = {"where": {"source": source}} if source else {}
+        result = self._collection.get(include=["documents", "metadatas"], **kwargs)
         out = []
         for id_, doc, meta in zip(result["ids"], result["documents"], result["metadatas"]):
             out.append({"id": id_, "text": doc, "metadata": meta})

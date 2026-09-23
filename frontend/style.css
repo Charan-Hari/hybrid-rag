@@ -4,9 +4,9 @@
   --surface: #ffffff;
   --surface-soft: #f8faff;
   --border: #e5e9f2;
-  --text: #1d2939;
-  --muted: #667085;
-  --blue: #356ae6;
+  --text: #182230;
+  --muted: #526071;
+  --blue: #2459cf;
   --violet: #7357d9;
   --gold: #c28427;
   --green: #218653;
@@ -37,6 +37,9 @@ h1 { max-width: 620px; margin: 0; font-size: clamp(30px, 4.5vw, 52px); line-heig
 .workspace { display: grid; grid-template-columns: minmax(250px, .82fr) minmax(0, 1.55fr); gap: 16px; align-items: start; }
 .card { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 10px 35px rgba(30, 48, 85, .05); }
 .chat-card { grid-row: span 2; min-height: 540px; display: flex; flex-direction: column; }
+.chat-actions { display: flex; align-items: center; gap: 8px; }
+.secondary-button { padding: 6px 9px; border: 1px solid #c7d2e5; border-radius: 7px; color: #344054; background: #fff; font-size: 10px; font-weight: 700; }
+.secondary-button:hover { border-color: var(--blue); color: var(--blue); }
 .file-preview { margin: -4px 0 15px; padding: 12px; border: 1px solid #dce6fb; border-radius: 12px; background: linear-gradient(135deg, #f8faff, #fff); }
 .empty-preview { border-style: dashed; }
 .empty-preview strong { display: block; margin-top: 5px; font-size: 12px; }
@@ -48,6 +51,7 @@ h1 { max-width: 620px; margin: 0; font-size: clamp(30px, 4.5vw, 52px); line-heig
 .preview-title span { color: var(--muted); font-size: 9px; }
 .preview-kicker { color: var(--blue); font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .preview-badge { padding: 4px 6px; border-radius: 999px; color: var(--gold); background: #fff6e8; font-size: 8px; font-weight: 800; }
+.preview-badge.ready { color: var(--green); background: #eaf8ef; }
 .preview-summary { margin: 11px 0; color: #344054; font-size: 11px; line-height: 1.5; }
 .preview-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 10px 0 12px; }
 .preview-fact { min-width: 0; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
@@ -100,7 +104,7 @@ h2 { margin: 0 0 3px; font-size: 14px; letter-spacing: -.01em; }
 .avatar { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; border-radius: 9px; color: #fff; background: var(--violet); font-size: 11px; font-weight: 800; }
 .user .avatar { color: var(--muted); background: #edf0f5; }
 .message-label { margin: 3px 0 5px; color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .1em; }
-.message-text { color: #344054; white-space: pre-wrap; line-height: 1.6; font-size: 13px; }
+.message-text { color: #293649; white-space: pre-wrap; line-height: 1.65; font-size: 14px; }
 .user .message-text { padding: 10px 13px; border-radius: 12px 4px 12px 12px; color: #243b72; background: #eef3ff; }
 .suggestions { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 12px; }
 .suggestion { padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: #fff; font-size: 10px; }
@@ -115,6 +119,9 @@ h2 { margin: 0 0 3px; font-size: 14px; letter-spacing: -.01em; }
 .citation { padding: 7px 9px; border: 1px solid #cfe0ff; border-radius: 8px; background: #f5f8ff; color: var(--muted); font-size: 10px; }
 .citation summary { cursor: pointer; color: var(--blue); }
 .citation p { margin: 8px 0 2px; line-height: 1.5; }
+.toast { position: fixed; top: 22px; right: 22px; z-index: 20; display: flex; align-items: center; gap: 9px; padding: 11px 14px; border: 1px solid #b8e2c8; border-radius: 10px; color: #145b36; background: #effaf3; box-shadow: 0 12px 28px rgba(15, 55, 33, .16); font-size: 12px; font-weight: 700; animation: toast-in .18s ease-out; }
+.toast-check { display: grid; width: 18px; height: 18px; place-items: center; border-radius: 50%; color: #fff; background: var(--green); }
+@keyframes toast-in { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 .insight-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat { padding: 10px 8px; border-radius: 10px; background: var(--surface-soft); text-align: center; }
 .stat strong { display: block; color: var(--text); font-size: 18px; }

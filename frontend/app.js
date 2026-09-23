@@ -9,6 +9,7 @@ const state = {
   apiKey: "",
   history: [],
   documents: [],
+  activeFile: "",
   busy: false,
 };
 
@@ -263,6 +264,7 @@ function sampleCard(sample) {
 }
 
 async function useSample(sample) {
+  resetConversation(sample.filename);
   const status = document.getElementById("uploadStatus");
   status.className = "inline-status pending";
   status.textContent = `Loading ${sample.filename}…`;
@@ -298,6 +300,7 @@ function bindLibrary() {
 async function uploadFile(file, sample = null) {
   const status = document.getElementById("uploadStatus");
   if (!file) return;
+  resetConversation(file.name);
   showFilePreview(file, sample);
   status.className = "inline-status pending";
   status.textContent = `Reading ${file.name}…`;
@@ -309,6 +312,12 @@ async function uploadFile(file, sample = null) {
     const result = await response.json();
     status.className = "inline-status success";
     status.textContent = `${result.filename} is ready · ${result.chunks_added} searchable sections`;
+    const badge = document.querySelector("#filePreview .preview-badge");
+    if (badge) {
+      badge.textContent = "READY";
+      badge.className = "preview-badge ready";
+    }
+    showToast(`${file.name} analyzed and ready`);
     document.getElementById("fileInput").value = "";
     await loadDocuments();
     checkHealth();
@@ -322,7 +331,10 @@ function chatContent() {
   return [
     element("div", { class: "card-heading split" }, [
       cardHeading("✦", "Ask questions", "Answers stay grounded in your uploaded files.", "violet"),
-      element("span", { class: "grounded-pill" }, "CITED ANSWERS"),
+      element("div", { class: "chat-actions" }, [
+        element("span", { class: "grounded-pill" }, "CITED ANSWERS"),
+        element("button", { id: "newChatButton", class: "secondary-button", type: "button", onclick: () => resetConversation() }, "New chat"),
+      ]),
     ]),
     element("section", { id: "filePreview", class: "file-preview empty-preview" }, [
       element("div", { class: "preview-kicker" }, "FILE INSIGHT"),
@@ -353,6 +365,28 @@ function bindChat() {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       submitQuery(input, button);
+    }
+
+    function resetConversation(activeFile = "") {
+      state.history = [];
+      state.activeFile = activeFile;
+      const log = document.getElementById("chatLog");
+      if (log) {
+        log.replaceChildren(message("assistant", activeFile
+          ? `I’m focused on ${activeFile}. Ask about its contents, or choose another file to start a new chat.`
+          : "Hi! Add a document, then ask me anything about it."));
+      }
+    }
+
+    function showToast(text) {
+      const existing = document.querySelector(".toast");
+      existing?.remove();
+      const toast = element("div", { class: "toast", role: "status" }, [
+        element("span", { class: "toast-check" }, "✓"),
+        text,
+      ]);
+      document.body.appendChild(toast);
+      window.setTimeout(() => toast.remove(), 2600);
     }
   });
 }
@@ -425,7 +459,7 @@ async function submitQuery(input, button) {
     const response = await fetch(`${state.apiBase}/api/query`, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({ query, history: state.history.slice(0, -1) }),
+      body: JSON.stringify({ query, source: state.activeFile || null, history: state.history.slice(0, -1) }),
     });
     if (!response.ok || !response.body) throw new Error(await response.text());
     const reader = response.body.getReader();
@@ -433,29 +467,31 @@ async function submitQuery(input, button) {
     let buffer = "";
     let answerText = "";
     let citations = [];
+    const handleBlock = (block) => {
+      const event = block.match(/^event: (.+)$/m)?.[1];
+      const data = block.match(/^data: (.+)$/m)?.[1];
+      if (!event || !data) return;
+      const payload = JSON.parse(data);
+      if (event === "citations") citations = payload;
+      if (event === "token") {
+        answerText += payload.text;
+        answer.textContent = answerText;
+        log.scrollTop = log.scrollHeight;
+      }
+      if (event === "done") {
+        state.history.push({ role: "assistant", content: answerText });
+        renderCitations(answer.parentElement, citations);
+      }
+    };
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
       const blocks = buffer.split("\n\n");
       buffer = blocks.pop() || "";
-      for (const block of blocks) {
-        const event = block.match(/^event: (.+)$/m)?.[1];
-        const data = block.match(/^data: (.+)$/m)?.[1];
-        if (!event || !data) continue;
-        const payload = JSON.parse(data);
-        if (event === "citations") citations = payload;
-        if (event === "token") {
-          answerText += payload.text;
-          answer.textContent = answerText;
-          log.scrollTop = log.scrollHeight;
-        }
-        if (event === "done") {
-          state.history.push({ role: "assistant", content: answerText });
-          renderCitations(answer.parentElement, citations);
-        }
-      }
+      blocks.forEach(handleBlock);
     }
+    if (buffer.trim()) handleBlock(buffer);
   } catch (error) {
     answer.textContent = readableError(error, "The assistant could not answer right now.");
     answer.parentElement.parentElement.classList.add("error-message");

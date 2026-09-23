@@ -35,10 +35,10 @@ class HybridRetriever:
         """Call after new documents are added so the BM25 index rebuilds."""
         self._bm25_dirty = True
 
-    def _ensure_bm25(self) -> None:
-        if not self._bm25_dirty and self._bm25 is not None:
+    def _ensure_bm25(self, source: str | None = None) -> None:
+        if source is None and not self._bm25_dirty and self._bm25 is not None:
             return
-        docs = self._store.all_documents()
+        docs = self._store.all_documents(source)
         self._bm25_docs = docs
         if docs:
             tokenized = [_tokenize(d["text"]) for d in docs]
@@ -47,8 +47,8 @@ class HybridRetriever:
             self._bm25 = None
         self._bm25_dirty = False
 
-    def _sparse_search(self, query: str, top_k: int) -> list[RetrievedPassage]:
-        self._ensure_bm25()
+    def _sparse_search(self, query: str, top_k: int, source: str | None = None) -> list[RetrievedPassage]:
+        self._ensure_bm25(source)
         if self._bm25 is None or not self._bm25_docs:
             return []
         scores = self._bm25.get_scores(_tokenize(query))
@@ -61,18 +61,18 @@ class HybridRetriever:
             if s > 0
         ]
 
-    def _dense_search(self, query: str, top_k: int) -> list[RetrievedPassage]:
-        results = self._store.query_dense(query, top_k)
+    def _dense_search(self, query: str, top_k: int, source: str | None = None) -> list[RetrievedPassage]:
+        results = self._store.query_dense(query, top_k, source)
         return [
             RetrievedPassage(id=r["id"], text=r["text"], metadata=r["metadata"], score=r["score"])
             for r in results
         ]
 
-    def retrieve(self, query: str) -> list[RetrievedPassage]:
+    def retrieve(self, query: str, source: str | None = None) -> list[RetrievedPassage]:
         """Fuse dense + sparse rankings via Reciprocal Rank Fusion (RRF)."""
         settings = get_settings()
-        dense = self._dense_search(query, settings.top_k_dense)
-        sparse = self._sparse_search(query, settings.top_k_sparse)
+        dense = self._dense_search(query, settings.top_k_dense, source)
+        sparse = self._sparse_search(query, settings.top_k_sparse, source)
 
         rrf_k = 60  # standard RRF smoothing constant
         fused_scores: dict[str, float] = {}

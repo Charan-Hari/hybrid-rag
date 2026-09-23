@@ -4,7 +4,7 @@ Hybrid RAG is a small, public document-intelligence demo. Upload a PDF, Word
 document, Markdown file, or text file, then ask questions and receive a streamed
 answer with supporting citations.
 
-**Live demo:** [charan-hari.github.io/hybrid-rag](https://charan-hari.github.io/hybrid-rag/)
+**Live demo:** https://charan-hari.github.io/hybrid-rag/
 
 ## What the demo does
 
@@ -21,9 +21,9 @@ The default embedding implementation uses deterministic feature hashing rather
 than PyTorch or transformer weights. This keeps the free Render deployment
 small and avoids downloading a model during the first upload.
 
-## Try the live demo
+## Try it
 
-1. Open the [live demo](https://charan-hari.github.io/hybrid-rag/).
+1. Open the live demo.
 2. Choose **Use sample** or select your own PDF, DOCX, Markdown, or TXT file.
 3. Review the file insight card while it is being indexed.
 4. Ask a specific question, such as:
@@ -42,22 +42,11 @@ The five bundled samples are in [`frontend/samples/`](frontend/samples/):
 | NASA Earth science | Markdown | Reference text and source links |
 | NIST cybersecurity basics | Markdown | Structured guidance and named framework functions |
 
-## Screenshots and demo recording
+## Demo
 
-The live site is the source of truth for the current UI:
-
-[Open the working demo](https://charan-hari.github.io/hybrid-rag/)
-
-To add a real recording to the repository, capture the live page as
-`docs/demo.gif` and place this directly below:
-
-```markdown
-![Hybrid RAG demo](docs/demo.gif)
-```
-
-This repository package does not include a fabricated recording; a screen
-recording should be captured from the deployed site so it reflects the actual
-backend connection and streamed answer behavior.
+Add one real screen recording at `docs/demo.gif` after capturing the deployed
+workflow: select a sample, wait for “analyzed”, click a suggested question, and
+show the cited answer. A GIF is enough; separate screenshots are unnecessary.
 
 ## Architecture
 

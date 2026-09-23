@@ -21,6 +21,8 @@ from app.retrieval import get_retriever
 from app.vectorstore import get_vector_store
 
 settings = get_settings()
+allowed_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
+allow_credentials = "*" not in allowed_origins
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -30,8 +32,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in settings.cors_allow_origins.split(",")],
-    allow_credentials=True,
+    allow_origins=allowed_origins or ["*"],
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -51,6 +53,7 @@ def require_api_key(request: Request) -> None:
 class QueryRequest(BaseModel):
     query: str
     history: list[dict] | None = None
+    source: str | None = None
 
 
 class IngestResponse(BaseModel):
@@ -110,6 +113,9 @@ async def ingest(request: Request, file: UploadFile = File(...)) -> IngestRespon
                 f.write(chunk)
 
         chunks = ingest_file(tmp_path, settings.chunk_size, settings.chunk_overlap)
+        for chunk in chunks:
+            chunk.source = file.filename or "upload"
+            chunk.metadata["source"] = chunk.source
         store = get_vector_store()
         added = store.add_chunks(chunks)
         get_retriever(store).invalidate()
@@ -134,7 +140,7 @@ async def delete_document(request: Request, source: str) -> dict:
 async def query(request: Request, body: QueryRequest) -> StreamingResponse:
     store = get_vector_store()
     retriever = get_retriever(store)
-    passages = retriever.retrieve(body.query)
+    passages = retriever.retrieve(body.query, body.source)
 
     async def event_stream():
         citations = [
