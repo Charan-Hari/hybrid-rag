@@ -1,11 +1,7 @@
-"""Hybrid retrieval: dense (Chroma) + sparse (BM25) fusion, plus optional
-cross-encoder re-ranking of the fused candidates.
-"""
+"""Hybrid retrieval: dense (Chroma) + sparse (BM25) fusion."""
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import lru_cache
-
 from rank_bm25 import BM25Okapi
 
 from app.config import get_settings
@@ -99,30 +95,19 @@ class HybridRetriever:
         candidate_pool = fused[: max(settings.top_k_dense, settings.top_k_sparse)]
 
         if settings.use_reranker and candidate_pool:
-            return _rerank(query, candidate_pool)[: settings.top_k_final]
+            return _lexical_rerank(query, candidate_pool)[: settings.top_k_final]
 
         return candidate_pool[: settings.top_k_final]
 
 
-@lru_cache
-def _get_cross_encoder():
-    from sentence_transformers import CrossEncoder
-
-    settings = get_settings()
-    return CrossEncoder(settings.reranker_model)
-
-
-def _rerank(query: str, passages: list[RetrievedPassage]) -> list[RetrievedPassage]:
-    import math
-
-    encoder = _get_cross_encoder()
-    pairs = [(query, p.text) for p in passages]
-    raw_scores = encoder.predict(pairs)
-    for p, s in zip(passages, raw_scores):
-        # normalize raw cross-encoder logit to (0, 1) via sigmoid so it can be
-        # compared against `min_relevance_score` for confidence gating.
-        p.score = 1.0 / (1.0 + math.exp(-float(s)))
-    return sorted(passages, key=lambda p: p.score, reverse=True)
+def _lexical_rerank(query: str, passages: list[RetrievedPassage]) -> list[RetrievedPassage]:
+    """Optionally emphasize exact query-term overlap without loading a model."""
+    query_terms = set(_tokenize(query))
+    for passage in passages:
+        passage_terms = set(_tokenize(passage.text))
+        overlap = len(query_terms & passage_terms) / max(len(query_terms), 1)
+        passage.score = 0.7 * passage.score + 0.3 * overlap
+    return sorted(passages, key=lambda passage: passage.score, reverse=True)
 
 
 _retriever_singleton: HybridRetriever | None = None

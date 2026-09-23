@@ -18,11 +18,11 @@ GitHub Pages (frontend/)              <- static HTML/JS/CSS, no build step
 FastAPI backend (backend/)            <- deploy free on Hugging Face Spaces / Render
         │
         ├── Ingestion: PDF / DOCX / Markdown / TXT loaders + recursive chunker
-        ├── Embeddings: sentence-transformers (all-MiniLM-L6-v2, free-tier friendly)
+        ├── Embeddings: lightweight feature-hash vectors (stdlib-only, free-tier friendly)
         ├── Vector store: Chroma (persistent, local disk)
         ├── Hybrid retrieval: dense (Chroma) + sparse (BM25) fused via
         │                     Reciprocal Rank Fusion (RRF)
-        ├── Re-ranking: optional cross-encoder (disabled by default on free tiers)
+        ├── Re-ranking: optional lightweight lexical reranking
         ├── Confidence gate: skips LLM call and returns an honest
         │                    "insufficient context" message when
         │                    retrieval relevance is too low
@@ -163,8 +163,8 @@ frontend is intentionally static and does not contain an API key.
 
 1. Create a Render service or Docker-based Hugging Face Space from `backend/`.
 2. Set `LLM_PROVIDER`, `GROQ_API_KEY` or `GEMINI_API_KEY`, and `CORS_ALLOW_ORIGINS`.
-   For a free 512 MB service, keep `USE_RERANKER=false` and use
-   `EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`.
+   The default feature-hash embedder and `USE_RERANKER=false` are designed for
+   a free 512 MB service and do not download PyTorch or transformer weights.
 3. Set `API_KEY` only when requests are protected by a proper auth layer; do not publish
    a long-lived administrator key in a public client.
 4. Use persistent storage for Chroma. Ephemeral free instances lose the index on restart.

@@ -1,6 +1,9 @@
 """Embedding model wrapper + Chroma-backed persistent vector store."""
 from __future__ import annotations
 
+import hashlib
+import math
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -11,18 +14,29 @@ from app.config import get_settings
 from app.ingestion import Chunk
 
 
-@lru_cache
-def get_embedder():
-    """Lazily load the sentence-transformers embedding model (cached singleton)."""
-    from sentence_transformers import SentenceTransformer
-
-    settings = get_settings()
-    return SentenceTransformer(settings.embedding_model)
+TOKEN_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]*", re.IGNORECASE)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    model = get_embedder()
-    return model.encode(texts, normalize_embeddings=True, show_progress_bar=False).tolist()
+    """Create normalized feature-hash embeddings without heavyweight ML runtimes.
+
+    Token and adjacent-token features preserve both keyword and lightweight
+    semantic signals while keeping ingestion viable on 512 MB containers.
+    """
+    dimension = get_settings().embedding_dimension
+    vectors: list[list[float]] = []
+    for text in texts:
+        tokens = TOKEN_PATTERN.findall(text.lower())
+        features = tokens + [f"{a}:{b}" for a, b in zip(tokens, tokens[1:])]
+        vector = [0.0] * dimension
+        for feature in features:
+            digest = hashlib.blake2b(feature.encode("utf-8"), digest_size=8).digest()
+            index = int.from_bytes(digest[:4], "big") % dimension
+            sign = 1.0 if digest[4] & 1 else -1.0
+            vector[index] += sign
+        norm = math.sqrt(sum(value * value for value in vector))
+        vectors.append([value / norm for value in vector] if norm else vector)
+    return vectors
 
 
 class VectorStore:
