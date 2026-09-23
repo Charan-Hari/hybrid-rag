@@ -1,145 +1,24 @@
 # Hybrid RAG
 
-Hybrid RAG is a small, public document-intelligence demo. Upload a PDF, Word
-document, Markdown file, or text file, then ask questions and receive a streamed
-answer with supporting citations.
+Upload a document, ask a question, and inspect a streamed answer with the
+supporting source passages.
 
-**Live demo:** https://charan-hari.github.io/hybrid-rag/
+![Hybrid RAG walkthrough](docs/demo.gif)
 
-## What the demo does
+## Included
 
-- Drag-and-drop or select PDF, DOCX, Markdown, and TXT files.
-- Show an immediate file insight card with a summary and visual signals.
-- Bundle five sample documents so the demo can be tried without downloads.
-- Extract text and metadata, split it into searchable sections, and persist it in Chroma.
-- Combine dense feature-hash retrieval with BM25 keyword retrieval.
-- Stream grounded answers from Gemini using Server-Sent Events.
-- Show source/page citations and an honest insufficient-context response.
-- Run on a static GitHub Pages frontend and a small FastAPI backend.
-
-The default embedding implementation uses deterministic feature hashing rather
-than PyTorch or transformer weights. This keeps the free Render deployment
-small and avoids downloading a model during the first upload.
-
-## Try it
-
-1. Open the live demo.
-2. Choose **Use sample** or select your own PDF, DOCX, Markdown, or TXT file.
-3. Review the file insight card while it is being indexed.
-4. Ask a specific question, such as:
-
-   - `What are the key takeaways?`
-   - `What risks or controls are mentioned?`
-   - `Give me a short summary with citations.`
-
-The five bundled samples are in [`frontend/samples/`](frontend/samples/):
-
-| Sample | Format | Demonstrates |
-|---|---|---|
-| Embedded images & tables | PDF | Research text, table-like content, and figures |
-| Project brief | DOCX | Headings, priorities, owners, and delivery planning |
-| Security review | DOCX | Risk ratings, controls, and action tracking |
-| NASA Earth science | Markdown | Reference text and source links |
-| NIST cybersecurity basics | Markdown | Structured guidance and named framework functions |
-
-## Demo
-
-![Hybrid RAG document chat walkthrough](docs/demo.gif)
-
-The walkthrough shows the intended flow: select a sample, wait for analysis,
-ask a document-scoped question, and inspect citations.
-
-## Product patterns used
-
-The interface borrows proven patterns from comparable document assistants:
-
-- [ChatGPT file uploads](https://help.openai.com/en/articles/8555545-file-uploads-faq)
-  — simple upload-first conversation and clear processing feedback.
-- [Google NotebookLM](https://notebooklm.google.com/) — sources remain visible
-  and answers stay tied to the selected source set.
-- [Claude Projects](https://support.anthropic.com/en/articles/9517075-what-are-projects)
-  — explicit project/document context and a clean reset point for a new chat.
-- [AnythingLLM](https://anythingllm.com/) — workspace/library organization and
-  document status visibility.
-- [Open WebUI](https://docs.openwebui.com/) — familiar chat composer,
-  suggestions, and expandable source evidence.
-
-Those patterns became the selected-file insight card, source-scoped retrieval,
-the **New chat** action, timed analysis notification, larger type, and
-expandable citations in this demo.
-
-## Architecture
-
-```text
-GitHub Pages frontend
-        │  HTTPS fetch + SSE
-        ▼
-FastAPI backend
-        ├── PDF/DOCX/Markdown/TXT ingestion and chunking
-        ├── Feature-hash vectors + Chroma persistence
-        ├── BM25 keyword retrieval
-        ├── Reciprocal-rank hybrid retrieval
-        └── Gemini streamed generation with citations
-```
-
-## Repository layout
-
-```text
-backend/
-  app/
-    main.py          API endpoints
-    ingestion.py     file loaders and chunking
-    vectorstore.py   lightweight embeddings and Chroma
-    retrieval.py     dense + BM25 hybrid retrieval
-    generation.py    Gemini streaming and citations
-  tests/
-  Dockerfile
-  requirements.txt
-  .env.example
-frontend/
-  index.html
-  app.js
-  style.css
-  samples/
-.github/workflows/
-```
-
-## Deploy your own copy
-
-### 1. Backend on Render
-
-Create a Render Web Service from this repository:
-
-- **Root directory:** `backend`
-- **Runtime:** Docker
-- **Health check path:** `/api/health`
-
-Add these environment variables in Render:
-
-```text
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_gemini_key
-GEMINI_MODEL=gemini-3.6-flash
-CORS_ALLOW_ORIGINS=https://charan-hari.github.io
-MAX_UPLOAD_MB=20
-RATE_LIMIT_PER_MINUTE=30
-USE_RERANKER=false
-```
-
-Never put `GEMINI_API_KEY` in the frontend, GitHub Pages, a ZIP file, or a
-committed `.env` file. The free instance uses the lightweight embedder and
-does not need PyTorch.
-
-### 2. Frontend on GitHub Pages
-
-The included workflow deploys `frontend/` from the `main` branch. The deployed
-frontend already points to the configured backend through
-`window.HYBRID_RAG_API_BASE` in [`frontend/index.html`](frontend/index.html).
-
-If you use a different backend, change that URL and set
-`CORS_ALLOW_ORIGINS` to the exact GitHub Pages origin.
+- PDF, DOCX, Markdown, and TXT upload
+- Five bundled samples in [`frontend/samples/`](frontend/samples/)
+- File insight card with format, content, and suggested question
+- DOCX table extraction and PDF page metadata
+- Hybrid retrieval: lightweight feature hashing + BM25
+- Gemini streaming with source/page citations
+- New-chat reset and document-scoped questions
+- Static frontend for GitHub Pages and FastAPI backend for Render
 
 ## Run locally
+
+Backend:
 
 ```bash
 cd backend
@@ -147,38 +26,64 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-# Add GEMINI_API_KEY to backend/.env
 uvicorn app.main:app --reload --port 7860
 ```
 
-In another terminal:
+Set `GEMINI_API_KEY` in `backend/.env`. The default model is
+`gemini-3.6-flash`.
+
+Frontend:
 
 ```bash
 python -m http.server 5500 --directory frontend
 ```
 
-Then open `http://localhost:5500`.
+Open `http://localhost:5500`.
+
+## Deploy
+
+### Render backend
+
+Use `backend/` as the Docker service root and `/api/health` as the health
+check. Add these Render environment variables:
+
+```text
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_actual_key
+GEMINI_MODEL=gemini-3.6-flash
+CORS_ALLOW_ORIGINS=https://charan-hari.github.io
+MAX_UPLOAD_MB=20
+RATE_LIMIT_PER_MINUTE=30
+```
+
+Keep the Gemini key only in Render. Never commit it or place it in frontend
+files.
+
+### GitHub Pages frontend
+
+The included workflow deploys `frontend/`. Its backend URL is configured in
+[`frontend/index.html`](frontend/index.html).
 
 ## API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/api/health` | Backend status and indexed section count |
-| GET | `/api/documents` | Indexed document list |
-| POST | `/api/ingest` | Add a PDF, DOCX, Markdown, or TXT file |
-| POST | `/api/query` | Stream answer, citations, and completion events |
+| GET | `/api/health` | Service status and indexed section count |
+| GET | `/api/documents` | Indexed document inventory |
+| POST | `/api/ingest` | Index a supported file |
+| POST | `/api/query` | Stream citations and answer tokens |
 | DELETE | `/api/documents/{source}` | Remove one document |
 | DELETE | `/api/reset` | Clear the index |
 
-## Security and operating notes
+## Project structure
 
-- API keys belong only in server environment variables.
-- CORS should be restricted to the deployed frontend origin.
-- Upload size and request rate are configurable.
-- Free Render storage is ephemeral; use a persistent disk if the index must
-  survive service restarts.
-- The public demo is intended for sample and non-sensitive documents.
+```text
+backend/app/       FastAPI, ingestion, retrieval, generation
+backend/tests/     Backend tests
+frontend/          Static UI and bundled samples
+docs/demo.gif      Short product walkthrough
+```
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
+MIT

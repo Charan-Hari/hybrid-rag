@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import tempfile
 import uuid
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -21,6 +22,7 @@ from app.retrieval import get_retriever
 from app.vectorstore import get_vector_store
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 allowed_origins = [o.strip() for o in settings.cors_allow_origins.split(",") if o.strip()]
 allow_credentials = "*" not in allowed_origins
 
@@ -29,6 +31,16 @@ limiter = Limiter(key_func=get_remote_address)
 app = FastAPI(title="hybrid-rag", version="0.1.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception(request: Request, exc: Exception) -> JSONResponse:
+    """Return a CORS-compatible error response instead of an opaque browser failure."""
+    logger.exception("Unhandled request error: %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "The backend could not complete this request. Check Render logs."},
+    )
 
 app.add_middleware(
     CORSMiddleware,

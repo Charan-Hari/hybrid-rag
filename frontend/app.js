@@ -548,7 +548,7 @@ async function loadDocuments() {
   } catch {
     state.documents = [];
     document.getElementById("documentCount").textContent = "not connected";
-    list.replaceChildren(element("div", { class: "empty-state" }, "Connect a workspace to load your library."));
+    list.replaceChildren(element("div", { class: "empty-state error-state" }, "The workspace could not load documents. Check the backend status and try again."));
     renderInsights();
   }
 }

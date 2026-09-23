@@ -7,6 +7,7 @@
   --text: #182230;
   --muted: #526071;
   --blue: #2459cf;
+  --blue-dark: #173f9d;
   --violet: #7357d9;
   --gold: #c28427;
   --green: #218653;
@@ -20,7 +21,7 @@ button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 a { color: var(--blue); }
 .shell { width: min(1160px, calc(100% - 40px)); margin: auto; padding: 28px 0 48px; }
-.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 58px; }
+.topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 58px; padding: 10px 14px; border: 1px solid #d9e2f0; border-radius: 14px; background: rgba(255,255,255,.82); box-shadow: 0 6px 20px rgba(35, 61, 104, .06); }
 .brand { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 750; letter-spacing: -.02em; }
 .brand-mark { display: grid; width: 28px; height: 28px; place-items: center; color: #fff; border-radius: 9px; background: var(--blue); }
 .topbar-note { color: var(--muted); font-size: 12px; }
@@ -83,7 +84,8 @@ h2 { margin: 0 0 4px; font-size: 16px; letter-spacing: -.01em; }
 .inline-status.error, .error-message .message-text { color: var(--danger); }
 .sample-heading { display: flex; justify-content: space-between; gap: 10px; margin: 13px 0 8px; color: var(--text); font-size: 11px; }
 .sample-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
-.sample-card { display: flex; align-items: center; gap: 8px; padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+.sample-card { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 11px; background: #fff; transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease; }
+.sample-card:hover { border-color: #a9c0f0; box-shadow: 0 6px 16px rgba(36, 89, 207, .09); transform: translateY(-1px); }
 .sample-card-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .sample-card-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .sample-card-copy span, .sample-card-copy a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; }
@@ -111,8 +113,8 @@ h2 { margin: 0 0 4px; font-size: 16px; letter-spacing: -.01em; }
 .suggestion:hover { border-color: #abc0f2; color: var(--blue); background: #f8faff; }
 .composer { display: flex; gap: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: #fbfcfe; }
 .composer textarea { min-height: 42px; flex: 1; resize: none; border: 0; outline: 0; color: var(--text); background: transparent; }
-.primary-button { align-self: flex-end; padding: 10px 13px; border: 0; border-radius: 9px; color: #fff; background: var(--blue); font-size: 12px; font-weight: 750; }
-.primary-button:hover { background: #2858ca; }
+.primary-button { align-self: flex-end; padding: 11px 15px; border: 0; border-radius: 9px; color: #fff; background: linear-gradient(135deg, var(--blue), #5b4bd8); font-size: 12px; font-weight: 750; box-shadow: 0 5px 12px rgba(36, 89, 207, .2); }
+.primary-button:hover { background: linear-gradient(135deg, var(--blue-dark), #4d3bc4); }
 .primary-button:disabled { cursor: wait; opacity: .55; }
 .composer-note { margin-top: 7px; color: var(--muted); font-size: 9px; text-align: right; }
 .citations { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; }
