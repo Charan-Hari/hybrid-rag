@@ -98,12 +98,15 @@ No build step required. Either:
 - Open `frontend/index.html` directly in a browser, or
 - Serve it locally: `python -m http.server 5500 --directory frontend`
 
-In the UI, set **Backend API base URL** to `http://localhost:7860` (default). For local
-development, leave `API_KEY` empty. For a public deployment, use an authentication
-proxy or short-lived token rather than exposing a shared administrator key in a browser.
+The UI defaults to the current origin when hosted and keeps connection controls under
+**Advanced connection settings**. For local development, it automatically uses
+`http://localhost:7860`; leave `API_KEY` empty for a frictionless demo. For a public
+deployment, set `window.HYBRID_RAG_API_BASE` before `app.js` in `frontend/index.html` to
+the deployed backend URL. Use an authentication proxy or short-lived token rather than
+exposing a shared administrator key in a browser.
 
 ### 3. Try it
-1. Upload a PDF/DOCX/MD/TXT file via "Upload & Index".
+1. Add a PDF/DOCX/MD/TXT file using the document drop zone.
 2. Ask a question in the chat box — the answer streams in with numbered
    citations `[1]`, `[2]` linking back to source + page.
 3. Ask something unrelated to the document — you should see the explicit

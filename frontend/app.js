@@ -1,8 +1,14 @@
-const DEFAULT_API_BASE = "http://localhost:7860";
+const configuredApi = window.HYBRID_RAG_API_BASE || "";
+const DEFAULT_API_BASE = configuredApi || (
+  window.location.protocol === "http:" || window.location.protocol === "https:"
+    ? window.location.origin
+    : "http://localhost:7860"
+);
 const state = {
   apiBase: localStorage.getItem("hybridrag_api_base") || DEFAULT_API_BASE,
   apiKey: "",
   history: [],
+  documents: [],
   busy: false,
 };
 
@@ -26,40 +32,176 @@ function authHeaders(extra = {}) {
   return state.apiKey ? { ...extra, "X-API-Key": state.apiKey } : extra;
 }
 
+function readableError(error, fallback = "Please check the connection and try again.") {
+  try {
+    const detail = JSON.parse(error.message)?.detail;
+    if (detail) return detail;
+  } catch {
+    // The response may be plain text.
+  }
+  if (error.name === "TypeError") return "The assistant is not connected yet. Check the backend URL in Advanced settings.";
+  return error.message || fallback;
+}
+
 function render() {
   root.replaceChildren(
     element("main", { class: "shell" }, [
-      element("header", { class: "hero" }, [
-        element("div", { class: "eyebrow" }, ["OPEN-SOURCE RAG LAB", element("span", { class: "live-dot" })]),
-        element("h1", {}, ["Ask your documents ", element("span", { class: "gradient-text" }, "better.")]),
-        element("p", { class: "hero-copy" }, "Hybrid dense + keyword retrieval, cross-encoder reranking, and cited streaming answers in one transparent demo."),
-        element("div", { class: "hero-badges" }, [
-          element("span", { class: "badge" }, "Hybrid search"),
-          element("span", { class: "badge" }, "Citations"),
-          element("span", { class: "badge" }, "Open source"),
+      element("header", { class: "topbar" }, [
+        element("div", { class: "brand" }, [
+          element("span", { class: "brand-mark", "aria-hidden": "true" }, "✦"),
+          element("span", {}, "Document Desk"),
+        ]),
+        element("span", { class: "topbar-note" }, "Private, cited answers from your files"),
+      ]),
+      element("section", { class: "intro" }, [
+        element("div", {}, [
+          element("p", { class: "eyebrow" }, "HYBRID RAG WORKSPACE"),
+          element("h1", {}, "Understand your documents."),
+          element("p", { class: "hero-copy" }, "Upload a file, ask a question, and see the passages that support the answer. No setup is needed when the workspace is connected."),
+        ]),
+        element("div", { class: "intro-status", id: "healthStatus" }, [
+          element("span", { class: "status-dot" }), "Connecting…",
         ]),
       ]),
       element("section", { class: "workspace" }, [
+        element("section", { class: "card library-card" }, libraryContent()),
+        element("section", { class: "card chat-card" }, chatContent()),
+        insightsCard(),
         settingsCard(),
-        libraryCard(),
-        chatCard(),
       ]),
       element("footer", {}, [
-        "Built for learning and showcasing production-minded RAG · ",
+        "Open source · ",
         element("a", { href: "https://github.com/Charan-Hari/hybrid-rag", target: "_blank", rel: "noreferrer" }, "View source"),
       ]),
     ])
   );
+  bindLibrary();
+  bindChat();
   checkHealth();
   loadDocuments();
 }
 
-function settingsCard() {
-  const apiInput = element("input", { id: "apiBase", type: "url", value: state.apiBase, placeholder: "https://your-api.example.com" });
-  const keyInput = element("input", { id: "apiKey", type: "password", placeholder: "Optional server key" });
-  const status = element("div", { id: "healthStatus", class: "connection-status pending" }, [
-    element("span", { class: "status-dot" }), "Checking backend…",
+function cardHeading(icon, title, description, tone = "blue") {
+  return element("div", { class: "card-heading" }, [
+    element("div", { class: `icon-box ${tone}`, "aria-hidden": "true" }, icon),
+    element("div", {}, [element("h2", {}, title), element("p", {}, description)]),
   ]);
+}
+
+function libraryContent() {
+  const fileInput = element("input", { id: "fileInput", type: "file", accept: ".pdf,.docx,.md,.markdown,.txt", hidden: "true" });
+  const dropzone = element("label", { class: "dropzone", for: "fileInput", tabindex: "0" }, [
+    element("span", { class: "upload-icon", "aria-hidden": "true" }, "↑"),
+    element("strong", {}, "Add a document"),
+    element("span", { class: "muted" }, "Drop a PDF, DOCX, Markdown, or TXT file here"),
+  ]);
+  return [
+    element("div", { class: "card-heading split" }, [
+      cardHeading("▤", "Your documents", "Files become searchable sources.", "blue"),
+      element("span", { id: "documentCount", class: "count-pill" }, "0 files"),
+    ]),
+    fileInput,
+    dropzone,
+    element("div", { id: "uploadStatus", class: "inline-status", role: "status" }),
+    element("div", { id: "documentList", class: "document-list" }, [
+      element("div", { class: "empty-state" }, "Your library is empty. Add a document to begin."),
+    ]),
+  ];
+}
+
+function bindLibrary() {
+  const input = document.getElementById("fileInput");
+  const dropzone = document.querySelector(".dropzone");
+  input.addEventListener("change", () => uploadFile(input.files?.[0]));
+  ["dragenter", "dragover"].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    dropzone.classList.add("dragging");
+  }));
+  ["dragleave", "drop"].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    dropzone.classList.remove("dragging");
+  }));
+  dropzone.addEventListener("drop", (event) => uploadFile(event.dataTransfer.files?.[0]));
+  dropzone.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") input.click();
+  });
+}
+
+async function uploadFile(file) {
+  const status = document.getElementById("uploadStatus");
+  if (!file) return;
+  status.className = "inline-status pending";
+  status.textContent = `Reading ${file.name}…`;
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await fetch(`${state.apiBase}/api/ingest`, { method: "POST", headers: authHeaders(), body: form });
+    if (!response.ok) throw new Error(await response.text());
+    const result = await response.json();
+    status.className = "inline-status success";
+    status.textContent = `${result.filename} is ready · ${result.chunks_added} searchable sections`;
+    document.getElementById("fileInput").value = "";
+    await loadDocuments();
+    checkHealth();
+  } catch (error) {
+    status.className = "inline-status error";
+    status.textContent = `Could not add the file: ${readableError(error)}`;
+  }
+}
+
+function chatContent() {
+  return [
+    element("div", { class: "card-heading split" }, [
+      cardHeading("✦", "Ask questions", "Answers stay grounded in your uploaded files.", "violet"),
+      element("span", { class: "grounded-pill" }, "CITED ANSWERS"),
+    ]),
+    element("div", { id: "chatLog", class: "chat-log" }, [
+      message("assistant", "Hi! Add a document on the left, then ask me anything about it. I’ll include the supporting passages with every answer."),
+    ]),
+    element("div", { class: "suggestions" }, [
+      suggestion("Give me a short summary"),
+      suggestion("What are the key takeaways?"),
+      suggestion("What evidence supports the main claim?"),
+    ]),
+    element("div", { class: "composer" }, [
+      element("textarea", { id: "queryInput", rows: "2", placeholder: "Ask a question about your documents…", "aria-label": "Question" }),
+      element("button", { class: "primary-button", id: "sendButton", type: "button" }, ["Ask", element("span", { "aria-hidden": "true" }, "↗")]),
+    ]),
+    element("div", { class: "composer-note" }, "Enter to send · Shift + Enter for a new line"),
+  ];
+}
+
+function bindChat() {
+  const input = document.getElementById("queryInput");
+  const button = document.getElementById("sendButton");
+  button.addEventListener("click", () => submitQuery(input, button));
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      submitQuery(input, button);
+    }
+  });
+}
+
+function suggestion(text) {
+  return element("button", { class: "suggestion", type: "button", onclick: () => {
+    const input = document.getElementById("queryInput");
+    input.value = text;
+    input.focus();
+  } }, text);
+}
+
+function insightsCard() {
+  return element("section", { class: "card insights-card" }, [
+    cardHeading("▥", "Library overview", "A quick view of what is indexed.", "gold"),
+    element("div", { id: "insightStats", class: "insight-stats" }),
+    element("div", { id: "insightChart", class: "insight-chart" }),
+  ]);
+}
+
+function settingsCard() {
+  const apiInput = element("input", { id: "apiBase", type: "url", value: state.apiBase, placeholder: "https://your-backend.example.com" });
+  const keyInput = element("input", { id: "apiKey", type: "password", placeholder: "Only if your administrator enabled one", autocomplete: "off" });
   const save = () => {
     state.apiBase = apiInput.value.trim().replace(/\/$/, "") || DEFAULT_API_BASE;
     state.apiKey = keyInput.value.trim();
@@ -69,107 +211,19 @@ function settingsCard() {
   };
   apiInput.addEventListener("change", save);
   keyInput.addEventListener("change", save);
-  return element("section", { class: "card settings-card" }, [
-    element("div", { class: "card-heading" }, [
-      element("div", { class: "icon-box purple" }, "⚙"),
-      element("div", {}, [element("h2", {}, "Connection"), element("p", {}, "Point the UI at your running FastAPI backend.")]),
-    ]),
+  return element("details", { class: "advanced-settings card" }, [
+    element("summary", {}, ["Advanced connection settings", element("span", { "aria-hidden": "true" }, "⌄")]),
+    element("p", { class: "settings-help" }, "Most users can ignore this. It is only needed when this page is not pre-connected to a backend."),
     element("label", {}, ["Backend URL", apiInput]),
-    element("label", {}, ["API key ", element("span", { class: "muted" }, "(not stored)"), keyInput]),
-    status,
+    element("label", {}, ["Server key ", element("span", { class: "muted" }, "(optional)"), keyInput]),
   ]);
-}
-
-function libraryCard() {
-  const fileInput = element("input", { id: "fileInput", type: "file", accept: ".pdf,.docx,.md,.markdown,.txt", hidden: "true" });
-  const dropzone = element("label", { class: "dropzone", for: "fileInput" }, [
-    element("span", { class: "upload-icon" }, "↑"),
-    element("strong", {}, "Drop a document here"),
-    element("span", { class: "muted" }, "or click to browse · PDF, DOCX, MD, TXT"),
-  ]);
-  const uploadStatus = element("div", { id: "uploadStatus", class: "inline-status" });
-  const list = element("div", { id: "documentList", class: "document-list" }, [
-    element("div", { class: "empty-state" }, "No documents indexed yet."),
-  ]);
-  const upload = async () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
-    uploadStatus.textContent = `Indexing ${file.name}…`;
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const response = await fetch(`${state.apiBase}/api/ingest`, { method: "POST", headers: authHeaders(), body: form });
-      if (!response.ok) throw new Error(await response.text());
-      const result = await response.json();
-      uploadStatus.textContent = `${result.filename} indexed · ${result.chunks_added} chunks`;
-      fileInput.value = "";
-      await loadDocuments();
-      checkHealth();
-    } catch (error) {
-      uploadStatus.textContent = `Upload failed: ${error.message}`;
-    }
-  };
-  fileInput.addEventListener("change", upload);
-  return element("section", { class: "card library-card" }, [
-    element("div", { class: "card-heading split" }, [
-      element("div", { class: "heading-group" }, [
-        element("div", { class: "icon-box cyan" }, "▤"),
-        element("div", {}, [element("h2", {}, "Document library"), element("p", {}, "Add sources for grounded answers.")]),
-      ]),
-      element("span", { id: "documentCount", class: "count-pill" }, "0 sources"),
-    ]),
-    fileInput,
-    dropzone,
-    uploadStatus,
-    list,
-  ]);
-}
-
-function chatCard() {
-  const log = element("div", { id: "chatLog", class: "chat-log" }, [
-    message("assistant", "Welcome. Upload a document, then ask me a question. I’ll show which passages supported the answer."),
-  ]);
-  const input = element("textarea", { id: "queryInput", rows: "2", placeholder: "Ask anything about your documents…" });
-  const sendButton = element("button", { class: "primary-button", id: "sendButton", onclick: () => submitQuery(input, sendButton) }, ["Send", element("span", { class: "send-arrow" }, "↗")]);
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      submitQuery(input, sendButton);
-    }
-  });
-  return element("section", { class: "card chat-card" }, [
-    element("div", { class: "card-heading split" }, [
-      element("div", { class: "heading-group" }, [
-        element("div", { class: "icon-box orange" }, "✦"),
-        element("div", {}, [element("h2", {}, "Ask your knowledge base"), element("p", {}, "Answers are streamed and grounded in retrieved passages.")]),
-      ]),
-      element("span", { class: "secure-pill" }, "● GROUNDED MODE"),
-    ]),
-    log,
-    element("div", { class: "suggestions" }, [
-      suggestion("Summarize this document"),
-      suggestion("What are the key takeaways?"),
-      suggestion("What evidence supports the main claim?"),
-    ]),
-    element("div", { class: "composer" }, [input, sendButton]),
-    element("div", { class: "composer-note" }, "Enter to send · Shift + Enter for a new line"),
-  ]);
-}
-
-function suggestion(text) {
-  return element("button", { class: "suggestion", onclick: () => {
-    const input = document.getElementById("queryInput");
-    input.value = text;
-    input.focus();
-  } }, text);
 }
 
 function message(role, text) {
-  const avatar = role === "assistant" ? "✦" : "Y";
   return element("div", { class: `message ${role}` }, [
-    element("div", { class: "avatar" }, avatar),
+    element("div", { class: "avatar", "aria-hidden": "true" }, role === "assistant" ? "✦" : "Y"),
     element("div", { class: "message-body" }, [
-      element("div", { class: "message-label" }, role === "assistant" ? "HYBRID RAG" : "YOU"),
+      element("div", { class: "message-label" }, role === "assistant" ? "DOCUMENT DESK" : "YOU"),
       element("div", { class: "message-text" }, text),
     ]),
   ]);
@@ -191,7 +245,7 @@ async function submitQuery(input, button) {
   const log = document.getElementById("chatLog");
   addMessage(log, "user", query);
   state.history.push({ role: "user", content: query });
-  const answer = addMessage(log, "assistant", "Thinking…");
+  const answer = addMessage(log, "assistant", "Searching your documents…");
   try {
     const response = await fetch(`${state.apiBase}/api/query`, {
       method: "POST",
@@ -228,7 +282,7 @@ async function submitQuery(input, button) {
       }
     }
   } catch (error) {
-    answer.textContent = `Unable to reach the backend: ${error.message}`;
+    answer.textContent = readableError(error, "The assistant could not answer right now.");
     answer.parentElement.parentElement.classList.add("error-message");
   } finally {
     state.busy = false;
@@ -238,27 +292,28 @@ async function submitQuery(input, button) {
 
 function renderCitations(container, citations) {
   if (!citations.length) return;
-  const list = element("div", { class: "citations" }, citations.map((citation) =>
+  container.appendChild(element("div", { class: "citations" }, citations.map((citation) =>
     element("details", { class: "citation" }, [
       element("summary", {}, [`[${citation.index}] ${citation.source || "source"}${citation.page ? ` · page ${citation.page}` : ""}`]),
       element("p", {}, citation.excerpt || "Retrieved passage"),
     ])
-  ));
-  container.appendChild(list);
+  )));
 }
 
 async function checkHealth() {
   const status = document.getElementById("healthStatus");
   if (!status) return;
+  status.className = "intro-status pending";
+  status.replaceChildren(element("span", { class: "status-dot" }), "Checking workspace…");
   try {
     const response = await fetch(`${state.apiBase}/api/health`);
     if (!response.ok) throw new Error("unavailable");
     const data = await response.json();
-    status.className = "connection-status online";
-    status.replaceChildren(element("span", { class: "status-dot" }), `Backend online · ${data.documents_indexed} chunks indexed`);
+    status.className = "intro-status online";
+    status.replaceChildren(element("span", { class: "status-dot" }), `Ready · ${data.documents_indexed} sections indexed`);
   } catch {
-    status.className = "connection-status offline";
-    status.replaceChildren(element("span", { class: "status-dot" }), "Backend offline · set the API URL above");
+    status.className = "intro-status offline";
+    status.replaceChildren(element("span", { class: "status-dot" }), "Connect a workspace in Advanced settings");
   }
 }
 
@@ -267,31 +322,59 @@ async function loadDocuments() {
   if (!list) return;
   try {
     const response = await fetch(`${state.apiBase}/api/documents`, { headers: authHeaders() });
-    if (!response.ok) throw new Error("unavailable");
-    const documents = await response.json();
-    document.getElementById("documentCount").textContent = `${documents.length} source${documents.length === 1 ? "" : "s"}`;
-    list.replaceChildren(...(documents.length ? documents.map(documentRow) : [
-      element("div", { class: "empty-state" }, "No documents indexed yet."),
+    if (!response.ok) throw new Error(await response.text());
+    state.documents = await response.json();
+    document.getElementById("documentCount").textContent = `${state.documents.length} file${state.documents.length === 1 ? "" : "s"}`;
+    list.replaceChildren(...(state.documents.length ? state.documents.map(documentRow) : [
+      element("div", { class: "empty-state" }, "Your library is empty. Add a document to begin."),
     ]));
+    renderInsights();
   } catch {
-    document.getElementById("documentCount").textContent = "offline";
-    list.replaceChildren(element("div", { class: "empty-state" }, "Connect a backend to view your library."));
+    state.documents = [];
+    document.getElementById("documentCount").textContent = "not connected";
+    list.replaceChildren(element("div", { class: "empty-state" }, "Connect a workspace to load your library."));
+    renderInsights();
   }
+}
+
+function renderInsights() {
+  const totalChunks = state.documents.reduce((sum, document) => sum + document.chunks, 0);
+  const totalPages = state.documents.reduce((sum, document) => sum + (document.pages?.length || 0), 0);
+  document.getElementById("insightStats").replaceChildren(
+    stat("Files", state.documents.length),
+    stat("Sections", totalChunks),
+    stat("Pages", totalPages || "—"),
+  );
+  const chart = document.getElementById("insightChart");
+  const max = Math.max(...state.documents.map((document) => document.chunks), 1);
+  chart.replaceChildren(...state.documents.slice(0, 6).map((document) =>
+    element("div", { class: "bar-row", title: `${document.source}: ${document.chunks} sections` }, [
+      element("span", {}, document.source),
+      element("span", { class: "bar-track" }, [
+        element("span", { class: "bar-fill", style: `width:${Math.max(8, (document.chunks / max) * 100)}%` }),
+      ]),
+    ])
+  ));
+  if (!state.documents.length) chart.appendChild(element("div", { class: "empty-state" }, "Your indexed sections will appear here."));
+}
+
+function stat(label, value) {
+  return element("div", { class: "stat" }, [element("strong", {}, String(value)), element("span", {}, label)]);
 }
 
 function documentRow(document) {
   return element("div", { class: "document-row" }, [
-    element("span", { class: "file-icon" }, "▧"),
+    element("span", { class: "file-icon", "aria-hidden": "true" }, "▧"),
     element("div", { class: "document-meta" }, [
       element("strong", {}, document.source),
-      element("span", { class: "muted" }, `${document.chunks} chunks${document.pages.length ? ` · ${document.pages.length} pages` : ""}`),
+      element("span", { class: "muted" }, `${document.chunks} sections${document.pages.length ? ` · ${document.pages.length} pages` : ""}`),
     ]),
-    element("button", { class: "delete-button", title: `Delete ${document.source}`, onclick: () => deleteDocument(document.source) }, "×"),
+    element("button", { class: "delete-button", type: "button", title: `Remove ${document.source}`, "aria-label": `Remove ${document.source}`, onclick: () => deleteDocument(document.source) }, "×"),
   ]);
 }
 
 async function deleteDocument(source) {
-  if (!confirm(`Remove ${source} from the knowledge base?`)) return;
+  if (!confirm(`Remove ${source} from this workspace?`)) return;
   const response = await fetch(`${state.apiBase}/api/documents/${encodeURIComponent(source)}`, { method: "DELETE", headers: authHeaders() });
   if (!response.ok) return;
   await loadDocuments();
