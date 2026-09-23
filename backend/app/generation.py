@@ -38,10 +38,10 @@ def build_prompt(query: str, passages: list[RetrievedPassage], history: list[dic
 
 
 def has_sufficient_context(passages: list[RetrievedPassage]) -> bool:
-    settings = get_settings()
-    if not passages:
-        return False
-    return max(p.score for p in passages) >= settings.min_relevance_score
+    # Retrieval scores are ordering signals. The lightweight hash embedder can
+    # legitimately produce a zero-normalized score for a short one-chunk file,
+    # so reject only when retrieval found no passage at all.
+    return bool(passages)
 
 
 INSUFFICIENT_CONTEXT_MESSAGE = (

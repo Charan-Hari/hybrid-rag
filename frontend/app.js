@@ -310,6 +310,7 @@ async function uploadFile(file, sample = null) {
     const response = await fetch(`${state.apiBase}/api/ingest`, { method: "POST", headers: authHeaders(), body: form });
     if (!response.ok) throw new Error(await response.text());
     const result = await response.json();
+    state.activeFile = result.filename;
     status.className = "inline-status success";
     status.textContent = `${result.filename} is ready · ${result.chunks_added} searchable sections`;
     const badge = document.querySelector("#filePreview .preview-badge");
@@ -366,29 +367,29 @@ function bindChat() {
       event.preventDefault();
       submitQuery(input, button);
     }
-
-    function resetConversation(activeFile = "") {
-      state.history = [];
-      state.activeFile = activeFile;
-      const log = document.getElementById("chatLog");
-      if (log) {
-        log.replaceChildren(message("assistant", activeFile
-          ? `I’m focused on ${activeFile}. Ask about its contents, or choose another file to start a new chat.`
-          : "Hi! Add a document, then ask me anything about it."));
-      }
-    }
-
-    function showToast(text) {
-      const existing = document.querySelector(".toast");
-      existing?.remove();
-      const toast = element("div", { class: "toast", role: "status" }, [
-        element("span", { class: "toast-check" }, "✓"),
-        text,
-      ]);
-      document.body.appendChild(toast);
-      window.setTimeout(() => toast.remove(), 2600);
-    }
   });
+}
+
+function resetConversation(activeFile = "") {
+  state.history = [];
+  state.activeFile = activeFile;
+  const log = document.getElementById("chatLog");
+  if (log) {
+    log.replaceChildren(message("assistant", activeFile
+      ? `I’m focused on ${activeFile}. Ask about its contents, or choose another file to start a new chat.`
+      : "Hi! Add a document, then ask me anything about it."));
+  }
+}
+
+function showToast(text) {
+  const existing = document.querySelector(".toast");
+  existing?.remove();
+  const toast = element("div", { class: "toast", role: "status" }, [
+    element("span", { class: "toast-check" }, "✓"),
+    text,
+  ]);
+  document.body.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 2600);
 }
 
 function suggestion(text) {

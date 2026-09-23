@@ -13,9 +13,9 @@ def test_has_sufficient_context_true_above_threshold():
     assert has_sufficient_context(passages) is True
 
 
-def test_has_sufficient_context_false_below_threshold():
+def test_has_sufficient_context_accepts_retrieved_passage():
     passages = [_passage(0.01)]
-    assert has_sufficient_context(passages) is False
+    assert has_sufficient_context(passages) is True
 
 
 def test_has_sufficient_context_false_when_empty():

@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --bg: #f5f7fb;
+  --bg: #eef2f7;
   --surface: #ffffff;
   --surface-soft: #f8faff;
   --border: #e5e9f2;
@@ -19,7 +19,7 @@ body { min-width: 0; margin: 0; color: var(--text); background: var(--bg); }
 button, input, textarea { font: inherit; }
 button { cursor: pointer; }
 a { color: var(--blue); }
-.shell { width: min(1120px, calc(100% - 40px)); margin: auto; padding: 24px 0 42px; }
+.shell { width: min(1160px, calc(100% - 40px)); margin: auto; padding: 28px 0 48px; }
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 58px; }
 .brand { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 750; letter-spacing: -.02em; }
 .brand-mark { display: grid; width: 28px; height: 28px; place-items: center; color: #fff; border-radius: 9px; background: var(--blue); }
@@ -68,14 +68,14 @@ h1 { max-width: 620px; margin: 0; font-size: clamp(30px, 4.5vw, 52px); line-heig
 .icon-box.blue { color: var(--blue); background: #edf3ff; }
 .icon-box.violet { color: var(--violet); background: #f0edff; }
 .icon-box.gold { color: var(--gold); background: #fff6e8; }
-h2 { margin: 0 0 3px; font-size: 14px; letter-spacing: -.01em; }
-.card-heading p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+h2 { margin: 0 0 4px; font-size: 16px; letter-spacing: -.01em; }
+.card-heading p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .count-pill, .grounded-pill { white-space: nowrap; padding: 5px 8px; border-radius: 999px; color: var(--muted); background: var(--surface-soft); font-size: 10px; }
 .grounded-pill { color: var(--green); background: #edf9f2; }
 .dropzone { display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 22px 12px; text-align: center; border: 1px dashed #aebfe8; border-radius: 12px; color: var(--text); cursor: pointer; background: #f8faff; transition: .15s ease; }
 .dropzone:hover, .dropzone.dragging { border-color: var(--blue); background: #eef4ff; }
 .upload-icon { color: var(--blue); font-size: 24px; }
-.dropzone strong { font-size: 12px; }
+.dropzone strong { font-size: 13px; }
 .dropzone .muted, .muted { color: var(--muted); font-size: 10px; }
 .inline-status { min-height: 25px; padding: 8px 2px 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
 .inline-status.pending { color: var(--gold); }
@@ -86,7 +86,7 @@ h2 { margin: 0 0 3px; font-size: 14px; letter-spacing: -.01em; }
 .sample-card { display: flex; align-items: center; gap: 8px; padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
 .sample-card-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .sample-card-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.sample-card-copy span, .sample-card-copy a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; }
+.sample-card-copy span, .sample-card-copy a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 10px; }
 .sample-card-copy a { color: var(--blue); }
 .sample-button { padding: 7px 8px; border: 1px solid #c9d8fa; border-radius: 8px; color: var(--blue); background: #f5f8ff; font-size: 10px; font-weight: 700; }
 .sample-button:hover { border-color: var(--blue); background: #edf3ff; }
@@ -107,7 +107,7 @@ h2 { margin: 0 0 3px; font-size: 14px; letter-spacing: -.01em; }
 .message-text { color: #293649; white-space: pre-wrap; line-height: 1.65; font-size: 14px; }
 .user .message-text { padding: 10px 13px; border-radius: 12px 4px 12px 12px; color: #243b72; background: #eef3ff; }
 .suggestions { display: flex; flex-wrap: wrap; gap: 7px; margin: 4px 0 12px; }
-.suggestion { padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); background: #fff; font-size: 10px; }
+.suggestion { padding: 8px 11px; border: 1px solid #cbd5e3; border-radius: 999px; color: #3e4c60; background: #fff; font-size: 11px; }
 .suggestion:hover { border-color: #abc0f2; color: var(--blue); background: #f8faff; }
 .composer { display: flex; gap: 8px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: #fbfcfe; }
 .composer textarea { min-height: 42px; flex: 1; resize: none; border: 0; outline: 0; color: var(--text); background: transparent; }

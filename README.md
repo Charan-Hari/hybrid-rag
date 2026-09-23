@@ -44,9 +44,29 @@ The five bundled samples are in [`frontend/samples/`](frontend/samples/):
 
 ## Demo
 
-Add one real screen recording at `docs/demo.gif` after capturing the deployed
-workflow: select a sample, wait for “analyzed”, click a suggested question, and
-show the cited answer. A GIF is enough; separate screenshots are unnecessary.
+![Hybrid RAG document chat walkthrough](docs/demo.gif)
+
+The walkthrough shows the intended flow: select a sample, wait for analysis,
+ask a document-scoped question, and inspect citations.
+
+## Product patterns used
+
+The interface borrows proven patterns from comparable document assistants:
+
+- [ChatGPT file uploads](https://help.openai.com/en/articles/8555545-file-uploads-faq)
+  — simple upload-first conversation and clear processing feedback.
+- [Google NotebookLM](https://notebooklm.google.com/) — sources remain visible
+  and answers stay tied to the selected source set.
+- [Claude Projects](https://support.anthropic.com/en/articles/9517075-what-are-projects)
+  — explicit project/document context and a clean reset point for a new chat.
+- [AnythingLLM](https://anythingllm.com/) — workspace/library organization and
+  document status visibility.
+- [Open WebUI](https://docs.openwebui.com/) — familiar chat composer,
+  suggestions, and expandable source evidence.
+
+Those patterns became the selected-file insight card, source-scoped retrieval,
+the **New chat** action, timed analysis notification, larger type, and
+expandable citations in this demo.
 
 ## Architecture
 
