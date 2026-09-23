@@ -12,6 +12,54 @@ const state = {
   busy: false,
 };
 
+const SAMPLE_DOCUMENTS = [
+  {
+    id: "embedded-images-tables",
+    filename: "embedded-images-tables.pdf",
+    title: "Embedded images & tables",
+    description: "PDF with a research figure, table, and scientific text.",
+    source: "Unstructured example documents",
+    sourceUrl: "https://github.com/Unstructured-IO/unstructured-ingest/tree/main/example-docs",
+    path: "./samples/embedded-images-tables.pdf",
+  },
+  {
+    id: "project-brief",
+    filename: "sample-project-brief.docx",
+    title: "Project brief",
+    description: "DOCX with headings, priorities, owners, and a delivery table.",
+    source: "Hybrid RAG sample pack",
+    sourceUrl: "https://github.com/Charan-Hari/hybrid-rag",
+    path: "./samples/sample-project-brief.docx",
+  },
+  {
+    id: "security-review",
+    filename: "sample-security-review.docx",
+    title: "Security review",
+    description: "DOCX with risk ratings, controls, and review actions.",
+    source: "Hybrid RAG sample pack",
+    sourceUrl: "https://github.com/Charan-Hari/hybrid-rag",
+    path: "./samples/sample-security-review.docx",
+  },
+  {
+    id: "nasa-earth",
+    filename: "sample-nasa-earth.md",
+    title: "NASA Earth science",
+    description: "A starter brief about Earth systems and climate observations.",
+    source: "NASA Earth",
+    sourceUrl: "https://science.nasa.gov/earth/",
+    path: "./samples/sample-nasa-earth.md",
+  },
+  {
+    id: "nist-cybersecurity",
+    filename: "sample-nist-cybersecurity.md",
+    title: "NIST cybersecurity basics",
+    description: "A starter guide to the five cybersecurity functions.",
+    source: "NIST Cybersecurity Framework",
+    sourceUrl: "https://www.nist.gov/cyberframework",
+    path: "./samples/sample-nist-cybersecurity.md",
+  },
+];
+
 const root = document.getElementById("root");
 
 function element(tag, attrs = {}, children = []) {
@@ -103,10 +151,45 @@ function libraryContent() {
     fileInput,
     dropzone,
     element("div", { id: "uploadStatus", class: "inline-status", role: "status" }),
+    element("div", { class: "sample-heading" }, [
+      element("strong", {}, "Try a sample"),
+      element("span", { class: "muted" }, "No download required"),
+    ]),
+    element("div", { class: "sample-list" }, SAMPLE_DOCUMENTS.map(sampleCard)),
     element("div", { id: "documentList", class: "document-list" }, [
       element("div", { class: "empty-state" }, "Your library is empty. Add a document to begin."),
     ]),
   ];
+}
+
+function sampleCard(sample) {
+  return element("article", { class: "sample-card" }, [
+    element("div", { class: "sample-card-copy" }, [
+      element("strong", {}, sample.title),
+      element("span", {}, sample.description),
+      element("a", { href: sample.sourceUrl, target: "_blank", rel: "noreferrer" }, `Source: ${sample.source}`),
+    ]),
+    element("button", {
+      class: "sample-button",
+      type: "button",
+      onclick: () => useSample(sample),
+    }, "Use sample"),
+  ]);
+}
+
+async function useSample(sample) {
+  const status = document.getElementById("uploadStatus");
+  status.className = "inline-status pending";
+  status.textContent = `Loading ${sample.filename}…`;
+  try {
+    const response = await fetch(sample.path);
+    if (!response.ok) throw new Error(`Sample file unavailable (${response.status})`);
+    const file = new File([await response.blob()], sample.filename);
+    await uploadFile(file);
+  } catch (error) {
+    status.className = "inline-status error";
+    status.textContent = `Could not load the sample: ${readableError(error)}`;
+  }
 }
 
 function bindLibrary() {

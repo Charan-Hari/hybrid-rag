@@ -13,6 +13,8 @@ COPY app ./app
 
 ENV CHROMA_PERSIST_DIR=/data/chroma
 ENV UPLOAD_DIR=/data/uploads
+ENV OMP_NUM_THREADS=1
+ENV TOKENIZERS_PARALLELISM=false
 RUN mkdir -p /data/chroma /data/uploads
 
 EXPOSE 7860

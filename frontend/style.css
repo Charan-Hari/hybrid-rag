@@ -56,6 +56,15 @@ h2 { margin: 0 0 3px; font-size: 14px; letter-spacing: -.01em; }
 .inline-status.pending { color: var(--gold); }
 .inline-status.success { color: var(--green); }
 .inline-status.error, .error-message .message-text { color: var(--danger); }
+.sample-heading { display: flex; justify-content: space-between; gap: 10px; margin: 13px 0 8px; color: var(--text); font-size: 11px; }
+.sample-list { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+.sample-card { display: flex; align-items: center; gap: 8px; padding: 9px; border: 1px solid var(--border); border-radius: 10px; background: #fff; }
+.sample-card-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.sample-card-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.sample-card-copy span, .sample-card-copy a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; }
+.sample-card-copy a { color: var(--blue); }
+.sample-button { padding: 7px 8px; border: 1px solid #c9d8fa; border-radius: 8px; color: var(--blue); background: #f5f8ff; font-size: 10px; font-weight: 700; }
+.sample-button:hover { border-color: var(--blue); background: #edf3ff; }
 .document-list { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow: auto; }
 .document-row { display: flex; align-items: center; gap: 9px; padding: 9px; border-radius: 10px; background: var(--surface-soft); }
 .file-icon { color: var(--blue); }

@@ -18,11 +18,11 @@ GitHub Pages (frontend/)              <- static HTML/JS/CSS, no build step
 FastAPI backend (backend/)            <- deploy free on Hugging Face Spaces / Render
         │
         ├── Ingestion: PDF / DOCX / Markdown / TXT loaders + recursive chunker
-        ├── Embeddings: sentence-transformers (BAAI/bge-small-en-v1.5, CPU-friendly)
+        ├── Embeddings: sentence-transformers (all-MiniLM-L6-v2, free-tier friendly)
         ├── Vector store: Chroma (persistent, local disk)
         ├── Hybrid retrieval: dense (Chroma) + sparse (BM25) fused via
         │                     Reciprocal Rank Fusion (RRF)
-        ├── Re-ranking: cross-encoder (BAAI/bge-reranker-base)
+        ├── Re-ranking: optional cross-encoder (disabled by default on free tiers)
         ├── Confidence gate: skips LLM call and returns an honest
         │                    "insufficient context" message when
         │                    retrieval relevance is too low
@@ -64,7 +64,8 @@ hybrid-rag/
 ├── frontend/
 │   ├── index.html            # static UI, no build step — deploy as-is to GitHub Pages
 │   ├── app.js
-│   └── style.css
+│   ├── style.css
+│   └── samples/              # five bundled PDF, DOCX, and Markdown demo fixtures
 └── .github/workflows/
     ├── backend-ci.yml        # lint + pytest on backend changes
     └── deploy-pages.yml      # auto-deploy frontend/ to GitHub Pages
@@ -106,7 +107,10 @@ the deployed backend URL. Use an authentication proxy or short-lived token rathe
 exposing a shared administrator key in a browser.
 
 ### 3. Try it
-1. Add a PDF/DOCX/MD/TXT file using the document drop zone.
+1. Choose one of the five bundled samples or add a PDF/DOCX/MD/TXT file using the
+   document drop zone. The pack includes a PDF with embedded images/tables, two DOCX
+   files with structured tables, and two Markdown references. Samples are kept in
+   `frontend/samples/`, so the demo still works if external downloads are unavailable.
 2. Ask a question in the chat box — the answer streams in with numbered
    citations `[1]`, `[2]` linking back to source + page.
 3. Ask something unrelated to the document — you should see the explicit
@@ -159,6 +163,8 @@ frontend is intentionally static and does not contain an API key.
 
 1. Create a Render service or Docker-based Hugging Face Space from `backend/`.
 2. Set `LLM_PROVIDER`, `GROQ_API_KEY` or `GEMINI_API_KEY`, and `CORS_ALLOW_ORIGINS`.
+   For a free 512 MB service, keep `USE_RERANKER=false` and use
+   `EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2`.
 3. Set `API_KEY` only when requests are protected by a proper auth layer; do not publish
    a long-lived administrator key in a public client.
 4. Use persistent storage for Chroma. Ephemeral free instances lose the index on restart.

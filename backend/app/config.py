@@ -28,7 +28,9 @@ class Settings(BaseSettings):
     max_upload_mb: int = 20
 
     # --- Embeddings ---
-    embedding_model: str = "BAAI/bge-small-en-v1.5"
+    # Keep the default small enough for free 512 MB containers. Deployments
+    # with more memory can override this with a larger sentence-transformer.
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     # --- Chunking ---
     chunk_size: int = 800
@@ -38,8 +40,9 @@ class Settings(BaseSettings):
     top_k_dense: int = 8
     top_k_sparse: int = 8
     top_k_final: int = 5
-    use_reranker: bool = True
-    reranker_model: str = "BAAI/bge-reranker-base"
+    # Cross-encoders are valuable but can exceed the memory budget on free tiers.
+    use_reranker: bool = False
+    reranker_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
     min_relevance_score: float = 0.15  # below this, trigger "insufficient context" fallback
 
     # --- LLM provider ---
