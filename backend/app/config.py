@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./data/chroma"
     upload_dir: str = "./data/uploads"
     collection_name: str = "documents"
+    max_upload_mb: int = 20
 
     # --- Embeddings ---
     embedding_model: str = "BAAI/bge-small-en-v1.5"

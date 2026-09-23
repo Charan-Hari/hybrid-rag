@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import json
-import shutil
 import tempfile
+import uuid
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
@@ -63,10 +63,25 @@ class HealthResponse(BaseModel):
     documents_indexed: int
 
 
+class DocumentResponse(BaseModel):
+    source: str
+    chunks: int
+    pages: list[int]
+
+
 @app.get("/api/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     store = get_vector_store()
     return HealthResponse(status="ok", documents_indexed=store.count())
+
+
+@app.get(
+    "/api/documents",
+    response_model=list[DocumentResponse],
+    dependencies=[Depends(require_api_key)],
+)
+def documents() -> list[DocumentResponse]:
+    return [DocumentResponse(**document) for document in get_vector_store().documents()]
 
 
 @app.post("/api/ingest", response_model=IngestResponse, dependencies=[Depends(require_api_key)])
@@ -79,10 +94,20 @@ async def ingest(request: Request, file: UploadFile = File(...)) -> IngestRespon
             detail=f"Unsupported file type '{suffix}'. Supported: {sorted(SUPPORTED_EXTENSIONS)}",
         )
 
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    safe_name = Path(file.filename or "upload").name
     with tempfile.TemporaryDirectory() as tmp_dir:
-        tmp_path = Path(tmp_dir) / (file.filename or "upload")
+        tmp_path = Path(tmp_dir) / f"{uuid.uuid4().hex}-{safe_name}"
         with tmp_path.open("wb") as f:
-            shutil.copyfileobj(file.file, f)
+            total = 0
+            while chunk := file.file.read(1024 * 1024):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File exceeds the {settings.max_upload_mb} MB upload limit",
+                    )
+                f.write(chunk)
 
         chunks = ingest_file(tmp_path, settings.chunk_size, settings.chunk_overlap)
         store = get_vector_store()
@@ -90,6 +115,18 @@ async def ingest(request: Request, file: UploadFile = File(...)) -> IngestRespon
         get_retriever(store).invalidate()
 
     return IngestResponse(filename=file.filename or "upload", chunks_added=added)
+
+
+@app.delete(
+    "/api/documents/{source}",
+    dependencies=[Depends(require_api_key)],
+)
+async def delete_document(request: Request, source: str) -> dict:
+    deleted = get_vector_store().delete_source(source)
+    get_retriever(get_vector_store()).invalidate()
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"source": source, "chunks_deleted": deleted}
 
 
 @app.post("/api/query", dependencies=[Depends(require_api_key)])

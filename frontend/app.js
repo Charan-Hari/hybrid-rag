@@ -1,238 +1,301 @@
-// Hybrid RAG frontend — plain JS, no build step, deployable directly to GitHub Pages.
-// Configure the backend API base URL below (or via the Settings panel, stored in localStorage).
-
 const DEFAULT_API_BASE = "http://localhost:7860";
-
 const state = {
   apiBase: localStorage.getItem("hybridrag_api_base") || DEFAULT_API_BASE,
-  apiKey: localStorage.getItem("hybridrag_api_key") || "",
-  history: [], // [{role, content}]
+  apiKey: "",
+  history: [],
+  busy: false,
 };
 
 const root = document.getElementById("root");
 
-function el(tag, attrs = {}, children = []) {
+function element(tag, attrs = {}, children = []) {
   const node = document.createElement(tag);
-  for (const [k, v] of Object.entries(attrs)) {
-    if (k === "class") node.className = v;
-    else if (k.startsWith("on") && typeof v === "function") node.addEventListener(k.slice(2), v);
-    else node.setAttribute(k, v);
+  for (const [key, value] of Object.entries(attrs)) {
+    if (key === "class") node.className = value;
+    else if (key.startsWith("on")) node.addEventListener(key.slice(2), value);
+    else if (value !== undefined) node.setAttribute(key, value);
   }
   for (const child of [].concat(children)) {
-    if (child == null) continue;
+    if (child === null || child === undefined) continue;
     node.appendChild(typeof child === "string" ? document.createTextNode(child) : child);
   }
   return node;
 }
 
+function authHeaders(extra = {}) {
+  return state.apiKey ? { ...extra, "X-API-Key": state.apiKey } : extra;
+}
+
 function render() {
-  root.innerHTML = "";
-  root.appendChild(
-    el("div", { class: "app" }, [
-      el("header", { class: "app-header" }, [
-        el("h1", {}, "Hybrid RAG"),
-        el("p", {}, "Hybrid search + re-ranking + streaming, grounded answers with citations."),
+  root.replaceChildren(
+    element("main", { class: "shell" }, [
+      element("header", { class: "hero" }, [
+        element("div", { class: "eyebrow" }, ["OPEN-SOURCE RAG LAB", element("span", { class: "live-dot" })]),
+        element("h1", {}, ["Ask your documents ", element("span", { class: "gradient-text" }, "better.")]),
+        element("p", { class: "hero-copy" }, "Hybrid dense + keyword retrieval, cross-encoder reranking, and cited streaming answers in one transparent demo."),
+        element("div", { class: "hero-badges" }, [
+          element("span", { class: "badge" }, "Hybrid search"),
+          element("span", { class: "badge" }, "Citations"),
+          element("span", { class: "badge" }, "Open source"),
+        ]),
       ]),
-      settingsPanel(),
-      uploadPanel(),
-      chatPanel(),
-      el("footer", {}, [
-        "Built as a hybrid-RAG showcase. Backend must be running and reachable at the API base above. ",
-        el("a", { href: "https://github.com/Charan-Hari/hybrid-rag", target: "_blank" }, "Source on GitHub"),
+      element("section", { class: "workspace" }, [
+        settingsCard(),
+        libraryCard(),
+        chatCard(),
+      ]),
+      element("footer", {}, [
+        "Built for learning and showcasing production-minded RAG · ",
+        element("a", { href: "https://github.com/Charan-Hari/hybrid-rag", target: "_blank", rel: "noreferrer" }, "View source"),
       ]),
     ])
   );
+  checkHealth();
+  loadDocuments();
 }
 
-function settingsPanel() {
-  const apiBaseInput = el("input", {
-    type: "text",
-    id: "apiBase",
-    value: state.apiBase,
-  });
-  const apiKeyInput = el("input", {
-    type: "password",
-    id: "apiKey",
-    value: state.apiKey,
-    placeholder: "optional",
-  });
-
+function settingsCard() {
+  const apiInput = element("input", { id: "apiBase", type: "url", value: state.apiBase, placeholder: "https://your-api.example.com" });
+  const keyInput = element("input", { id: "apiKey", type: "password", placeholder: "Optional server key" });
+  const status = element("div", { id: "healthStatus", class: "connection-status pending" }, [
+    element("span", { class: "status-dot" }), "Checking backend…",
+  ]);
   const save = () => {
-    state.apiBase = apiBaseInput.value.trim().replace(/\/$/, "");
-    state.apiKey = apiKeyInput.value.trim();
+    state.apiBase = apiInput.value.trim().replace(/\/$/, "") || DEFAULT_API_BASE;
+    state.apiKey = keyInput.value.trim();
     localStorage.setItem("hybridrag_api_base", state.apiBase);
-    localStorage.setItem("hybridrag_api_key", state.apiKey);
     checkHealth();
+    loadDocuments();
   };
-
-  apiBaseInput.addEventListener("change", save);
-  apiKeyInput.addEventListener("change", save);
-
-  return el("div", { class: "panel" }, [
-    el("div", { class: "settings-grid" }, [
-      el("div", {}, [el("label", {}, "Backend API base URL"), apiBaseInput]),
-      el("div", {}, [el("label", {}, "API key (if configured on server)"), apiKeyInput]),
+  apiInput.addEventListener("change", save);
+  keyInput.addEventListener("change", save);
+  return element("section", { class: "card settings-card" }, [
+    element("div", { class: "card-heading" }, [
+      element("div", { class: "icon-box purple" }, "⚙"),
+      element("div", {}, [element("h2", {}, "Connection"), element("p", {}, "Point the UI at your running FastAPI backend.")]),
     ]),
-    el("p", { class: "status-line", id: "healthStatus" }, "Checking backend..."),
+    element("label", {}, ["Backend URL", apiInput]),
+    element("label", {}, ["API key ", element("span", { class: "muted" }, "(not stored)"), keyInput]),
+    status,
   ]);
 }
 
-function uploadPanel() {
-  const fileInput = el("input", { type: "file", id: "fileInput", accept: ".pdf,.docx,.md,.markdown,.txt" });
-  const statusEl = el("span", { class: "status-line", id: "uploadStatus" }, "");
-
-  const uploadBtn = el(
-    "button",
-    {
-      onclick: async () => {
-        const file = fileInput.files[0];
-        if (!file) {
-          statusEl.textContent = "Choose a file first.";
-          return;
-        }
-        uploadBtn.disabled = true;
-        statusEl.textContent = `Uploading ${file.name}...`;
-        try {
-          const form = new FormData();
-          form.append("file", file);
-          const res = await fetch(`${state.apiBase}/api/ingest`, {
-            method: "POST",
-            headers: authHeaders(),
-            body: form,
-          });
-          if (!res.ok) throw new Error(await res.text());
-          const data = await res.json();
-          statusEl.textContent = `Indexed ${data.filename}: ${data.chunks_added} chunks added.`;
-        } catch (err) {
-          statusEl.textContent = `Upload failed: ${err.message}`;
-        } finally {
-          uploadBtn.disabled = false;
-        }
-      },
-    },
-    "Upload & Index"
-  );
-
-  return el("div", { class: "panel" }, [
-    el("div", { class: "upload-row" }, [fileInput, uploadBtn, statusEl]),
+function libraryCard() {
+  const fileInput = element("input", { id: "fileInput", type: "file", accept: ".pdf,.docx,.md,.markdown,.txt", hidden: "true" });
+  const dropzone = element("label", { class: "dropzone", for: "fileInput" }, [
+    element("span", { class: "upload-icon" }, "↑"),
+    element("strong", {}, "Drop a document here"),
+    element("span", { class: "muted" }, "or click to browse · PDF, DOCX, MD, TXT"),
   ]);
-}
-
-function authHeaders(extra = {}) {
-  const headers = { ...extra };
-  if (state.apiKey) headers["X-API-Key"] = state.apiKey;
-  return headers;
-}
-
-function chatPanel() {
-  const log = el("div", { class: "chat-log", id: "chatLog" });
-  const textarea = el("textarea", { id: "queryInput", placeholder: "Ask a question about your uploaded documents..." });
-
-  const send = async () => {
-    const query = textarea.value.trim();
-    if (!query) return;
-    textarea.value = "";
-    appendMessage(log, "user", query);
-    state.history.push({ role: "user", content: query });
-
-    const assistantMsg = appendMessage(log, "assistant", "");
-    await streamQuery(query, assistantMsg);
+  const uploadStatus = element("div", { id: "uploadStatus", class: "inline-status" });
+  const list = element("div", { id: "documentList", class: "document-list" }, [
+    element("div", { class: "empty-state" }, "No documents indexed yet."),
+  ]);
+  const upload = async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    uploadStatus.textContent = `Indexing ${file.name}…`;
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const response = await fetch(`${state.apiBase}/api/ingest`, { method: "POST", headers: authHeaders(), body: form });
+      if (!response.ok) throw new Error(await response.text());
+      const result = await response.json();
+      uploadStatus.textContent = `${result.filename} indexed · ${result.chunks_added} chunks`;
+      fileInput.value = "";
+      await loadDocuments();
+      checkHealth();
+    } catch (error) {
+      uploadStatus.textContent = `Upload failed: ${error.message}`;
+    }
   };
+  fileInput.addEventListener("change", upload);
+  return element("section", { class: "card library-card" }, [
+    element("div", { class: "card-heading split" }, [
+      element("div", { class: "heading-group" }, [
+        element("div", { class: "icon-box cyan" }, "▤"),
+        element("div", {}, [element("h2", {}, "Document library"), element("p", {}, "Add sources for grounded answers.")]),
+      ]),
+      element("span", { id: "documentCount", class: "count-pill" }, "0 sources"),
+    ]),
+    fileInput,
+    dropzone,
+    uploadStatus,
+    list,
+  ]);
+}
 
-  textarea.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      send();
+function chatCard() {
+  const log = element("div", { id: "chatLog", class: "chat-log" }, [
+    message("assistant", "Welcome. Upload a document, then ask me a question. I’ll show which passages supported the answer."),
+  ]);
+  const input = element("textarea", { id: "queryInput", rows: "2", placeholder: "Ask anything about your documents…" });
+  const sendButton = element("button", { class: "primary-button", id: "sendButton", onclick: () => submitQuery(input, sendButton) }, ["Send", element("span", { class: "send-arrow" }, "↗")]);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      submitQuery(input, sendButton);
     }
   });
-
-  const sendBtn = el("button", { onclick: send }, "Send");
-
-  return el("div", { class: "panel" }, [log, el("div", { class: "query-row" }, [textarea, sendBtn])]);
+  return element("section", { class: "card chat-card" }, [
+    element("div", { class: "card-heading split" }, [
+      element("div", { class: "heading-group" }, [
+        element("div", { class: "icon-box orange" }, "✦"),
+        element("div", {}, [element("h2", {}, "Ask your knowledge base"), element("p", {}, "Answers are streamed and grounded in retrieved passages.")]),
+      ]),
+      element("span", { class: "secure-pill" }, "● GROUNDED MODE"),
+    ]),
+    log,
+    element("div", { class: "suggestions" }, [
+      suggestion("Summarize this document"),
+      suggestion("What are the key takeaways?"),
+      suggestion("What evidence supports the main claim?"),
+    ]),
+    element("div", { class: "composer" }, [input, sendButton]),
+    element("div", { class: "composer-note" }, "Enter to send · Shift + Enter for a new line"),
+  ]);
 }
 
-function appendMessage(log, role, text) {
-  const msg = el("div", { class: `msg ${role}` }, text);
-  log.appendChild(msg);
+function suggestion(text) {
+  return element("button", { class: "suggestion", onclick: () => {
+    const input = document.getElementById("queryInput");
+    input.value = text;
+    input.focus();
+  } }, text);
+}
+
+function message(role, text) {
+  const avatar = role === "assistant" ? "✦" : "Y";
+  return element("div", { class: `message ${role}` }, [
+    element("div", { class: "avatar" }, avatar),
+    element("div", { class: "message-body" }, [
+      element("div", { class: "message-label" }, role === "assistant" ? "HYBRID RAG" : "YOU"),
+      element("div", { class: "message-text" }, text),
+    ]),
+  ]);
+}
+
+function addMessage(log, role, text) {
+  const node = message(role, text);
+  log.appendChild(node);
   log.scrollTop = log.scrollHeight;
-  return msg;
+  return node.querySelector(".message-text");
 }
 
-async function streamQuery(query, assistantMsg) {
+async function submitQuery(input, button) {
+  const query = input.value.trim();
+  if (!query || state.busy) return;
+  state.busy = true;
+  button.disabled = true;
+  input.value = "";
+  const log = document.getElementById("chatLog");
+  addMessage(log, "user", query);
+  state.history.push({ role: "user", content: query });
+  const answer = addMessage(log, "assistant", "Thinking…");
   try {
-    const res = await fetch(`${state.apiBase}/api/query`, {
+    const response = await fetch(`${state.apiBase}/api/query`, {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ query, history: state.history.slice(0, -1) }),
     });
-    if (!res.ok || !res.body) throw new Error(await res.text());
-
-    const reader = res.body.getReader();
+    if (!response.ok || !response.body) throw new Error(await response.text());
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
     let answerText = "";
     let citations = [];
-
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
-
-      const events = buffer.split("\n\n");
-      buffer = events.pop() ?? "";
-
-      for (const block of events) {
-        const lines = block.split("\n");
-        const eventLine = lines.find((l) => l.startsWith("event:"));
-        const dataLine = lines.find((l) => l.startsWith("data:"));
-        if (!eventLine || !dataLine) continue;
-
-        const eventName = eventLine.slice(6).trim();
-        const data = JSON.parse(dataLine.slice(5).trim());
-
-        if (eventName === "citations") {
-          citations = data;
-        } else if (eventName === "token") {
-          answerText += data.text;
-          assistantMsg.textContent = answerText;
-        } else if (eventName === "done") {
+      const blocks = buffer.split("\n\n");
+      buffer = blocks.pop() || "";
+      for (const block of blocks) {
+        const event = block.match(/^event: (.+)$/m)?.[1];
+        const data = block.match(/^data: (.+)$/m)?.[1];
+        if (!event || !data) continue;
+        const payload = JSON.parse(data);
+        if (event === "citations") citations = payload;
+        if (event === "token") {
+          answerText += payload.text;
+          answer.textContent = answerText;
+          log.scrollTop = log.scrollHeight;
+        }
+        if (event === "done") {
           state.history.push({ role: "assistant", content: answerText });
-          if (citations.length) {
-            const citeBox = el(
-              "div",
-              { class: "citations" },
-              citations.map((c) =>
-                el("div", { class: "citation" }, [
-                  el("b", {}, `[${c.index}] `),
-                  `${c.source || "unknown"}${c.page ? `, p.${c.page}` : ""} — score ${c.score}`,
-                ])
-              )
-            );
-            assistantMsg.appendChild(citeBox);
-          }
-          if (answerText.includes("don't have enough relevant information")) {
-            assistantMsg.classList.add("fallback");
-          }
+          renderCitations(answer.parentElement, citations);
         }
       }
     }
-  } catch (err) {
-    assistantMsg.textContent = `Error: ${err.message}`;
-    assistantMsg.classList.add("fallback");
+  } catch (error) {
+    answer.textContent = `Unable to reach the backend: ${error.message}`;
+    answer.parentElement.parentElement.classList.add("error-message");
+  } finally {
+    state.busy = false;
+    button.disabled = false;
   }
+}
+
+function renderCitations(container, citations) {
+  if (!citations.length) return;
+  const list = element("div", { class: "citations" }, citations.map((citation) =>
+    element("details", { class: "citation" }, [
+      element("summary", {}, [`[${citation.index}] ${citation.source || "source"}${citation.page ? ` · page ${citation.page}` : ""}`]),
+      element("p", {}, citation.excerpt || "Retrieved passage"),
+    ])
+  ));
+  container.appendChild(list);
 }
 
 async function checkHealth() {
-  const statusEl = document.getElementById("healthStatus");
+  const status = document.getElementById("healthStatus");
+  if (!status) return;
   try {
-    const res = await fetch(`${state.apiBase}/api/health`);
-    const data = await res.json();
-    statusEl.textContent = `Backend reachable — ${data.documents_indexed} chunks indexed.`;
+    const response = await fetch(`${state.apiBase}/api/health`);
+    if (!response.ok) throw new Error("unavailable");
+    const data = await response.json();
+    status.className = "connection-status online";
+    status.replaceChildren(element("span", { class: "status-dot" }), `Backend online · ${data.documents_indexed} chunks indexed`);
   } catch {
-    statusEl.textContent = "Backend unreachable. Check the API base URL and that the server is running.";
+    status.className = "connection-status offline";
+    status.replaceChildren(element("span", { class: "status-dot" }), "Backend offline · set the API URL above");
   }
 }
 
+async function loadDocuments() {
+  const list = document.getElementById("documentList");
+  if (!list) return;
+  try {
+    const response = await fetch(`${state.apiBase}/api/documents`, { headers: authHeaders() });
+    if (!response.ok) throw new Error("unavailable");
+    const documents = await response.json();
+    document.getElementById("documentCount").textContent = `${documents.length} source${documents.length === 1 ? "" : "s"}`;
+    list.replaceChildren(...(documents.length ? documents.map(documentRow) : [
+      element("div", { class: "empty-state" }, "No documents indexed yet."),
+    ]));
+  } catch {
+    document.getElementById("documentCount").textContent = "offline";
+    list.replaceChildren(element("div", { class: "empty-state" }, "Connect a backend to view your library."));
+  }
+}
+
+function documentRow(document) {
+  return element("div", { class: "document-row" }, [
+    element("span", { class: "file-icon" }, "▧"),
+    element("div", { class: "document-meta" }, [
+      element("strong", {}, document.source),
+      element("span", { class: "muted" }, `${document.chunks} chunks${document.pages.length ? ` · ${document.pages.length} pages` : ""}`),
+    ]),
+    element("button", { class: "delete-button", title: `Delete ${document.source}`, onclick: () => deleteDocument(document.source) }, "×"),
+  ]);
+}
+
+async function deleteDocument(source) {
+  if (!confirm(`Remove ${source} from the knowledge base?`)) return;
+  const response = await fetch(`${state.apiBase}/api/documents/${encodeURIComponent(source)}`, { method: "DELETE", headers: authHeaders() });
+  if (!response.ok) return;
+  await loadDocuments();
+  checkHealth();
+}
+
 render();
-checkHealth();
-  

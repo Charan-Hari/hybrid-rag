@@ -88,6 +88,38 @@ class VectorStore:
     def count(self) -> int:
         return self._collection.count()
 
+    def documents(self) -> list[dict]:
+        """Return a compact document inventory grouped by source filename."""
+        documents = self.all_documents()
+        grouped: dict[str, dict] = {}
+        for item in documents:
+            source = str(item["metadata"].get("source") or "unknown")
+            entry = grouped.setdefault(
+                source,
+                {"source": source, "chunks": 0, "pages": set()},
+            )
+            entry["chunks"] += 1
+            page = item["metadata"].get("page")
+            if page:
+                entry["pages"].add(page)
+
+        return [
+            {
+                "source": item["source"],
+                "chunks": item["chunks"],
+                "pages": sorted(item["pages"]),
+            }
+            for item in sorted(grouped.values(), key=lambda value: value["source"].lower())
+        ]
+
+    def delete_source(self, source: str) -> int:
+        """Delete all chunks belonging to a source filename."""
+        matches = self._collection.get(where={"source": source}, include=["metadatas"])
+        ids = matches.get("ids", [])
+        if ids:
+            self._collection.delete(ids=ids)
+        return len(ids)
+
     def reset(self) -> None:
         self._client.delete_collection(self._collection_name)
         self._collection = self._client.get_or_create_collection(

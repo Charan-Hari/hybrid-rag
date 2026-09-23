@@ -70,7 +70,7 @@ hybrid-rag/
     └── deploy-pages.yml      # auto-deploy frontend/ to GitHub Pages
 ```
 
-## Getting started (local)
+## Getting started locally
 
 ### 1. Backend
 
@@ -79,7 +79,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\activate        # Windows
 pip install -r requirements.txt -r requirements-dev.txt
-cp .env.example .env          # then fill in GROQ_API_KEY or GEMINI_API_KEY
+copy .env.example .env        # PowerShell; then fill in GROQ_API_KEY or GEMINI_API_KEY
 uvicorn app.main:app --reload --port 7860
 ```
 
@@ -87,12 +87,20 @@ Get a **free** API key from one of:
 - Groq: https://console.groq.com/keys (fast, free tier, Llama 3.3 70B)
 - Gemini: https://aistudio.google.com/apikey (free tier, Gemini 2.0 Flash)
 
+Run tests:
+```bash
+pytest -v
+```
+
 ### 2. Frontend
 
 No build step required. Either:
 - Open `frontend/index.html` directly in a browser, or
 - Serve it locally: `python -m http.server 5500 --directory frontend`
 
+In the UI, set **Backend API base URL** to `http://localhost:7860` (default). For local
+development, leave `API_KEY` empty. For a public deployment, use an authentication
+proxy or short-lived token rather than exposing a shared administrator key in a browser.
 
 ### 3. Try it
 1. Upload a PDF/DOCX/MD/TXT file via "Upload & Index".
@@ -102,21 +110,56 @@ No build step required. Either:
    "I don't have enough relevant information..." fallback instead of a
    hallucinated answer.
 
+## API surface
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/health` | Liveness and indexed chunk count |
+| GET | `/api/documents` | List indexed sources and chunk/page counts |
+| POST | `/api/ingest` | Index a PDF, DOCX, Markdown, or TXT file |
+| DELETE | `/api/documents/{source}` | Remove one source and its chunks |
+| POST | `/api/query` | Stream answer/citations as Server-Sent Events |
+| DELETE | `/api/reset` | Clear the complete local index |
+
+`/api/query` emits `citations`, `token`, and `done` events. The frontend consumes this
+stream directly, so the answer appears progressively instead of waiting for generation
+to finish.
+
 ## Deploying for free
 
 **Backend** (pick one):
 - **Hugging Face Spaces** (Docker SDK, free CPU tier) — push `backend/` with its
   `Dockerfile`, set `GROQ_API_KEY`/`GEMINI_API_KEY` and `API_KEY` as Space secrets.
-- **Render** free web service — point at `backend/`, build command
+- **Render** free web service — point the root at `backend/`, build command
   `pip install -r requirements.txt`, start command
   `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
 
 **Frontend**:
 - GitHub Pages, via the included `.github/workflows/deploy-pages.yml` (auto-deploys
   `frontend/` on push to `main`). After deploying, update the **Backend API base URL**
-  field in the UI (persisted in `localStorage`) to point at your deployed backend URL,
-  and set `CORS_ALLOW_ORIGINS` on the backend to your Pages URL
+  field in the UI (the URL is persisted in `localStorage`) to point at your deployed
+  backend URL, and set `CORS_ALLOW_ORIGINS` on the backend to the exact Pages origin
   (e.g. `https://charan-hari.github.io`).
+
+### GitHub Pages
+
+The included workflow publishes `frontend/` to:
+
+```text
+https://charan-hari.github.io/hybrid-rag/
+```
+
+In repository **Settings → Pages**, choose **GitHub Actions** as the source. The
+frontend is intentionally static and does not contain an API key.
+
+### Backend deployment checklist
+
+1. Create a Render service or Docker-based Hugging Face Space from `backend/`.
+2. Set `LLM_PROVIDER`, `GROQ_API_KEY` or `GEMINI_API_KEY`, and `CORS_ALLOW_ORIGINS`.
+3. Set `API_KEY` only when requests are protected by a proper auth layer; do not publish
+   a long-lived administrator key in a public client.
+4. Use persistent storage for Chroma. Ephemeral free instances lose the index on restart.
+5. Copy the backend HTTPS URL into the Pages UI and verify `/api/health`.
 
 ## Evaluation
 
@@ -126,14 +169,20 @@ reports a retrieval-hit-rate metric (whether expected sources were cited). Exten
 in [RAGAS](https://github.com/explodinggradients/ragas) for faithfulness/answer-relevance
 scoring once you have a golden dataset.
 
+```bash
+python -m eval.run_eval --api-base http://localhost:7860 --dataset eval/dataset.json
+```
+
 ## Security notes
 
 - No secrets are committed. Copy `backend/.env.example` to `backend/.env` (gitignored)
   and fill in your own keys.
-- `API_KEY` (optional) gates `/api/ingest`, `/api/query`, and `/api/reset` via the
-  `X-API-Key` header — set it before deploying publicly to prevent abuse of your
-  free-tier LLM quota.
+- `API_KEY` (optional) gates `/api/ingest`, `/api/query`, `/api/documents`, and `/api/reset`
+  via the `X-API-Key` header. Treat it as a server-side integration secret; the UI only
+  holds a manually entered key in memory and never persists it.
 - Rate limiting (`RATE_LIMIT_PER_MINUTE`) is enabled by default via `slowapi`.
+- Uploads are limited by `MAX_UPLOAD_MB` and filenames are normalized before temporary
+  storage.
 
 ## Roadmap / possible extensions
 
@@ -143,5 +192,6 @@ scoring once you have a golden dataset.
 - Semantic caching to cut repeated LLM calls
 - Full RAGAS faithfulness/answer-relevance scoring in CI
 
+## License
 
 MIT — see [LICENSE](./LICENSE).
