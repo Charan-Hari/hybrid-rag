@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     # Gemini is the supported hosted provider for this deployment.
     llm_provider: str = "gemini"
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.0-flash"
+    gemini_model: str = "gemini-3.6-flash"
     llm_temperature: float = 0.2
     llm_max_tokens: int = 1024
 

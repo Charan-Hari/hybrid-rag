@@ -479,6 +479,10 @@ async function submitQuery(input, button) {
         answer.textContent = answerText;
         log.scrollTop = log.scrollHeight;
       }
+      if (event === "error") {
+        answer.textContent = payload.message || "Answer generation failed.";
+        answer.parentElement.parentElement.classList.add("error-message");
+      }
       if (event === "done") {
         state.history.push({ role: "assistant", content: answerText });
         renderCitations(answer.parentElement, citations);

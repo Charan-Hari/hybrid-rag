@@ -73,26 +73,26 @@ async def stream_answer(
 
 
 async def _stream_gemini(messages: list[dict]) -> AsyncGenerator[str, None]:
-    import google.generativeai as genai
+    from google import genai
+    from google.genai import types
 
     settings = get_settings()
     if not settings.gemini_api_key:
         yield "[Configuration error: GEMINI_API_KEY is not set on the server. Add it in Render Environment settings.]"
         return
 
-    genai.configure(api_key=settings.gemini_api_key)
     system_msg = next((m["content"] for m in messages if m["role"] == "system"), "")
     user_msg = next((m["content"] for m in messages if m["role"] == "user"), "")
-
-    model = genai.GenerativeModel(settings.gemini_model, system_instruction=system_msg)
-    response = model.generate_content(
-        user_msg,
-        generation_config={
-            "temperature": settings.llm_temperature,
-            "max_output_tokens": settings.llm_max_tokens,
-        },
-        stream=True,
+    client = genai.Client(api_key=settings.gemini_api_key)
+    response_stream = client.models.generate_content_stream(
+        model=settings.gemini_model,
+        contents=user_msg,
+        config=types.GenerateContentConfig(
+            system_instruction=system_msg,
+            temperature=settings.llm_temperature,
+            max_output_tokens=settings.llm_max_tokens,
+        ),
     )
-    for chunk in response:
+    for chunk in response_stream:
         if chunk.text:
             yield chunk.text

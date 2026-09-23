@@ -155,8 +155,14 @@ async def query(request: Request, body: QueryRequest) -> StreamingResponse:
         ]
         yield f"event: citations\ndata: {json.dumps(citations)}\n\n"
 
-        async for token in stream_answer(body.query, passages, body.history):
-            yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
+        try:
+            async for token in stream_answer(body.query, passages, body.history):
+                yield f"event: token\ndata: {json.dumps({'text': token})}\n\n"
+        except Exception as exc:
+            yield (
+                "event: error\n"
+                f"data: {json.dumps({'message': f'Answer generation failed: {exc}'})}\n\n"
+            )
 
         yield "event: done\ndata: {}\n\n"
 

@@ -119,7 +119,7 @@ Add these environment variables in Render:
 ```text
 LLM_PROVIDER=gemini
 GEMINI_API_KEY=your_gemini_key
-GEMINI_MODEL=gemini-2.0-flash
+GEMINI_MODEL=gemini-3.6-flash
 CORS_ALLOW_ORIGINS=https://charan-hari.github.io
 MAX_UPLOAD_MB=20
 RATE_LIMIT_PER_MINUTE=30
