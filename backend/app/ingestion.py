@@ -52,7 +52,13 @@ def _load_docx(path: Path) -> str:
     from docx import Document
 
     doc = Document(str(path))
-    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    parts = [p.text for p in doc.paragraphs if p.text.strip()]
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [cell.text.strip() for cell in row.cells]
+            if any(cells):
+                parts.append(" | ".join(cells))
+    return "\n".join(parts)
 
 
 def clean_text(text: str) -> str:

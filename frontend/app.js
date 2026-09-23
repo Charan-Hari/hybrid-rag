@@ -23,6 +23,7 @@ const SAMPLE_DOCUMENTS = [
     path: "./samples/embedded-images-tables.pdf",
     summary: "A scientific corrosion study with extracted research text, a polarization table, and embedded figures.",
     signals: [["Research text", 88], ["Tables", 72], ["Figures", 64]],
+    facts: [["Format", "Scientific PDF"], ["Content", "Text + table + figures"], ["Best question", "What does the table show?"]],
   },
   {
     id: "project-brief",
@@ -34,6 +35,7 @@ const SAMPLE_DOCUMENTS = [
     path: "./samples/sample-project-brief.docx",
     summary: "A delivery plan covering project goals, priorities, owners, milestones, and expected outcomes.",
     signals: [["Planning", 92], ["Actions", 78], ["Structure", 86]],
+    facts: [["Format", "Delivery plan"], ["Content", "Goals + owners + milestones"], ["Best question", "What are the priorities?"]],
   },
   {
     id: "security-review",
@@ -45,6 +47,7 @@ const SAMPLE_DOCUMENTS = [
     path: "./samples/sample-security-review.docx",
     summary: "A practical security review organized around risks, severity ratings, controls, and follow-up actions.",
     signals: [["Risk register", 94], ["Controls", 88], ["Actions", 76]],
+    facts: [["Format", "Security review"], ["Content", "Risks + controls + actions"], ["Best question", "Which risks need attention?"]],
   },
   {
     id: "nasa-earth",
@@ -56,6 +59,7 @@ const SAMPLE_DOCUMENTS = [
     path: "./samples/sample-nasa-earth.md",
     summary: "An introduction to how NASA observes Earth systems, climate patterns, and changes over time.",
     signals: [["Science", 90], ["Climate", 82], ["Reference", 70]],
+    facts: [["Format", "Earth science note"], ["Content", "Systems + observations"], ["Best question", "What does NASA observe?"]],
   },
   {
     id: "nist-cybersecurity",
@@ -67,6 +71,7 @@ const SAMPLE_DOCUMENTS = [
     path: "./samples/sample-nist-cybersecurity.md",
     summary: "A concise guide to the NIST Cybersecurity Framework functions: identify, protect, detect, respond, and recover.",
     signals: [["Security", 95], ["Framework", 91], ["Guidance", 84]],
+    facts: [["Format", "Cybersecurity guide"], ["Content", "Five framework functions"], ["Best question", "What are the five functions?"]],
   },
 ];
 
@@ -100,6 +105,7 @@ function showFilePreview(file, sample = null) {
         : [["Text", 88], ["Keywords", 74], ["Sections", 62]]
   );
   preview.className = "file-preview";
+  const facts = sample?.facts || [["Format", extension], ["Content", "Text extraction"], ["Next step", "Ask a question"]];
   preview.replaceChildren(
     element("div", { class: "preview-topline" }, [
       element("div", { class: "preview-file-icon" }, icon),
@@ -111,15 +117,16 @@ function showFilePreview(file, sample = null) {
       element("span", { class: "preview-badge" }, "ANALYZING"),
     ]),
     element("p", { id: "previewSummary", class: "preview-summary" }, sample?.summary || summaryForType(extension)),
+    element("div", { class: "preview-facts" }, facts.map(([label, value]) =>
+      element("div", { class: "preview-fact" }, [
+        element("span", {}, label),
+        element("strong", {}, value),
+      ])
+    )),
     element("div", { class: "preview-signals" }, baseSignals.map(([label, value]) =>
       element("div", { class: "preview-signal" }, [
-        element("div", { class: "preview-signal-label" }, [
-          element("span", {}, label),
-          element("span", {}, `${value}%`),
-        ]),
-        element("span", { class: "bar-track" }, [
-          element("span", { class: "bar-fill", style: `width:${value}%` }),
-        ]),
+        element("div", { class: "preview-signal-label" }, [element("span", {}, label), element("span", {}, `${value}%`)]),
+        element("span", { class: "signal-meter" }, [element("span", { style: `width:${value}%` })]),
       ])
     )),
     element("p", { class: "preview-note" }, sample ? "This sample is ready to index. Ask for a summary or key takeaways after processing." : "The backend will extract text, headings, tables, and page references while indexing.")
@@ -353,8 +360,9 @@ function bindChat() {
 function suggestion(text) {
   return element("button", { class: "suggestion", type: "button", onclick: () => {
     const input = document.getElementById("queryInput");
+    const button = document.getElementById("sendButton");
     input.value = text;
-    input.focus();
+    submitQuery(input, button);
   } }, text);
 }
 

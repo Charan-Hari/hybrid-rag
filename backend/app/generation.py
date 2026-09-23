@@ -65,36 +65,11 @@ async def stream_answer(
     messages = build_prompt(query, passages, history)
     settings = get_settings()
 
-    if settings.llm_provider == "groq":
-        async for token in _stream_groq(messages):
-            yield token
-    elif settings.llm_provider == "gemini":
+    if settings.llm_provider == "gemini":
         async for token in _stream_gemini(messages):
             yield token
     else:
         raise ValueError(f"Unknown llm_provider: {settings.llm_provider}")
-
-
-async def _stream_groq(messages: list[dict]) -> AsyncGenerator[str, None]:
-    from groq import AsyncGroq
-
-    settings = get_settings()
-    if not settings.groq_api_key:
-        yield "[Configuration error: GROQ_API_KEY is not set on the server.]"
-        return
-
-    client = AsyncGroq(api_key=settings.groq_api_key)
-    stream = await client.chat.completions.create(
-        model=settings.groq_model,
-        messages=messages,
-        temperature=settings.llm_temperature,
-        max_tokens=settings.llm_max_tokens,
-        stream=True,
-    )
-    async for chunk in stream:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            yield delta
 
 
 async def _stream_gemini(messages: list[dict]) -> AsyncGenerator[str, None]:
@@ -102,7 +77,7 @@ async def _stream_gemini(messages: list[dict]) -> AsyncGenerator[str, None]:
 
     settings = get_settings()
     if not settings.gemini_api_key:
-        yield "[Configuration error: GEMINI_API_KEY is not set on the server.]"
+        yield "[Configuration error: GEMINI_API_KEY is not set on the server. Add it in Render Environment settings.]"
         return
 
     genai.configure(api_key=settings.gemini_api_key)

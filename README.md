@@ -13,7 +13,7 @@ answer with supporting citations.
 - Bundle five sample documents so the demo can be tried without downloads.
 - Extract text and metadata, split it into searchable sections, and persist it in Chroma.
 - Combine dense feature-hash retrieval with BM25 keyword retrieval.
-- Stream grounded answers from Groq or Gemini using Server-Sent Events.
+- Stream grounded answers from Gemini using Server-Sent Events.
 - Show source/page citations and an honest insufficient-context response.
 - Run on a static GitHub Pages frontend and a small FastAPI backend.
 
@@ -70,7 +70,7 @@ FastAPI backend
         ├── Feature-hash vectors + Chroma persistence
         ├── BM25 keyword retrieval
         ├── Reciprocal-rank hybrid retrieval
-        └── Groq or Gemini streamed generation with citations
+        └── Gemini streamed generation with citations
 ```
 
 ## Repository layout
@@ -82,7 +82,7 @@ backend/
     ingestion.py     file loaders and chunking
     vectorstore.py   lightweight embeddings and Chroma
     retrieval.py     dense + BM25 hybrid retrieval
-    generation.py    Groq/Gemini streaming and citations
+    generation.py    Gemini streaming and citations
   tests/
   Dockerfile
   requirements.txt
@@ -108,16 +108,16 @@ Create a Render Web Service from this repository:
 Add these environment variables in Render:
 
 ```text
-LLM_PROVIDER=groq
-GROQ_API_KEY=your_groq_key
-GROQ_MODEL=llama-3.3-70b-versatile
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_gemini_key
+GEMINI_MODEL=gemini-2.0-flash
 CORS_ALLOW_ORIGINS=https://charan-hari.github.io
 MAX_UPLOAD_MB=20
 RATE_LIMIT_PER_MINUTE=30
 USE_RERANKER=false
 ```
 
-Never put `GROQ_API_KEY` in the frontend, GitHub Pages, a ZIP file, or a
+Never put `GEMINI_API_KEY` in the frontend, GitHub Pages, a ZIP file, or a
 committed `.env` file. The free instance uses the lightweight embedder and
 does not need PyTorch.
 
@@ -138,7 +138,7 @@ python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
 copy .env.example .env
-# Add GROQ_API_KEY or GEMINI_API_KEY to backend/.env
+# Add GEMINI_API_KEY to backend/.env
 uvicorn app.main:app --reload --port 7860
 ```
 

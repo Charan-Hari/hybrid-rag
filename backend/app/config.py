@@ -45,10 +45,8 @@ class Settings(BaseSettings):
     min_relevance_score: float = 0.15  # below this, trigger "insufficient context" fallback
 
     # --- LLM provider ---
-    # one of: "groq", "gemini"
-    llm_provider: str = "groq"
-    groq_api_key: str | None = None
-    groq_model: str = "llama-3.3-70b-versatile"
+    # Gemini is the supported hosted provider for this deployment.
+    llm_provider: str = "gemini"
     gemini_api_key: str | None = None
     gemini_model: str = "gemini-2.0-flash"
     llm_temperature: float = 0.2
