@@ -1,88 +1,132 @@
 # Hybrid RAG
 
-Upload a document, ask a question, and inspect a streamed answer with the
-supporting source passages.
+Ask questions about your documents and get concise, cited answers grounded in the content you provide.
 
-![Hybrid RAG walkthrough](docs/demo.gif)
+## The problem
 
-## Included
+Important information is often buried inside PDFs, Word documents, Markdown files, and text files. Finding a specific answer usually means manually searching across pages, tables, and sections.
 
-- PDF, DOCX, Markdown, and TXT upload
-- Five bundled samples in [`frontend/samples/`](frontend/samples/)
-- File insight card with format, content, and suggested question
-- DOCX table extraction and PDF page metadata
-- Hybrid retrieval: lightweight feature hashing + BM25
-- Gemini streaming with source/page citations
-- New-chat reset and document-scoped questions
-- Static frontend for GitHub Pages and FastAPI backend for Render
+Generic AI chat can also produce answers that are not supported by the source document.
+
+## Solution
+
+Document Desk combines document search with AI generation:
+
+- Upload PDF, DOCX, Markdown, or TXT files
+- Select a document and see a quick file insight
+- Ask questions about the selected document
+- Retrieve relevant passages using keyword and semantic search
+- Generate answers with Google Gemini
+- Show supporting citations and source excerpts
+- Keep conversations scoped to the selected document
+
+![Document Desk demo](docs/demo.gif)
+
+## Architecture
+
+```text
+                 Upload document
+                        |
+                        v
+              FastAPI ingestion service
+                        |
+          Extract text, pages, and DOCX tables
+                        |
+                        v
+             Hybrid retrieval index
+            /                       \
+       BM25 keyword search     Dense feature search
+            \                       /
+             Combined relevant passages
+                        |
+                        v
+                 Gemini generation
+                        |
+                        v
+          Streamed answer with citations
+```
+
+The frontend is a static application hosted on GitHub Pages. The backend runs as a FastAPI service and can be deployed on Render.
 
 ## Run locally
 
-Backend:
+### 1. Start the backend
 
 ```bash
 cd backend
 python -m venv .venv
-.venv\Scripts\activate
+```
+
+Activate the environment:
+
+```bash
+# macOS/Linux
+source .venv/bin/activate
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+```
+
+Install dependencies:
+
+```bash
 pip install -r requirements.txt
-copy .env.example .env
+```
+
+Create the environment file:
+
+```bash
+cp .env.example .env
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Add your Google AI Studio key to `backend/.env`:
+
+```env
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_api_key_here
+GEMINI_MODEL=gemini-3.6-flash
+```
+
+Start the API:
+
+```bash
 uvicorn app.main:app --reload --port 7860
 ```
 
-Set `GEMINI_API_KEY` in `backend/.env`. The default model is
-`gemini-3.6-flash`.
+### 2. Start the frontend
 
-Frontend:
+Open a second terminal from the repository root:
 
 ```bash
 python -m http.server 5500 --directory frontend
 ```
 
-Open `http://localhost:5500`.
-
-## Deploy
-
-### Render backend
-
-Use `backend/` as the Docker service root and `/api/health` as the health
-check. Add these Render environment variables:
+Open:
 
 ```text
-LLM_PROVIDER=gemini
-GEMINI_API_KEY=your_actual_key
-GEMINI_MODEL=gemini-3.6-flash
-CORS_ALLOW_ORIGINS=https://charan-hari.github.io
-MAX_UPLOAD_MB=20
-RATE_LIMIT_PER_MINUTE=30
+http://localhost:5500
 ```
 
-Keep the Gemini key only in Render. Never commit it or place it in frontend
-files.
+Select a sample document or upload your own file, then ask a question.
 
-### GitHub Pages frontend
+## API service
 
-The included workflow deploys `frontend/`. Its backend URL is configured in
-[`frontend/index.html`](frontend/index.html).
+The backend provides endpoints for:
 
-## API
+- Health checks
+- Document ingestion
+- Document listing
+- Document-scoped questions
+- Source citations
+- Document deletion and index reset
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/api/health` | Service status and indexed section count |
-| GET | `/api/documents` | Indexed document inventory |
-| POST | `/api/ingest` | Index a supported file |
-| POST | `/api/query` | Stream citations and answer tokens |
-| DELETE | `/api/documents/{source}` | Remove one document |
-| DELETE | `/api/reset` | Clear the index |
-
-## Project structure
-
-```text
-backend/app/       FastAPI, ingestion, retrieval, generation
-backend/tests/     Backend tests
-frontend/          Static UI and bundled samples
-docs/demo.gif      Short product walkthrough
-```
+The Gemini API key must remain in the backend environment. Do not place it in frontend files or commit it to GitHub.
 
 ## License
 
